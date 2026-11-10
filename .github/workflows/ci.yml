@@ -1,0 +1,60 @@
+# Runs on every push / pull request: the firmware must compile and the Python pipeline must pass its tests.
+# A red X on a PR means "do not merge yet" — open the failed job to see the error.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ hashFiles('node/platformio.ini', 'gateway/platformio.ini') }}
+      - run: pip install platformio
+      - name: Placeholder secrets (real ones are never in the repo)
+        run: cp gateway/include/secrets.example.h gateway/include/secrets.h
+      - name: Build nodes (box_A, box_B)
+        run: pio run -d node
+      - name: Build gateway
+        run: pio run -d gateway -e gateway
+      - name: Build with real-sensor code paths (SIMULATE_SENSOR=0)
+        env:
+          PLATFORMIO_BUILD_FLAGS: -DSIMULATE_SENSOR=0 -Wno-builtin-macro-redefined
+        run: |
+          pio run -d node -e box_A
+          pio run -d gateway -e gateway
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: tools/requirements.txt
+      - run: pip install -r tools/requirements.txt pyflakes
+      - name: Lint (unused imports, undefined names)
+        run: python -m pyflakes ai tools
+      - name: Controller unit test
+        run: python ai/controller.py
+      - name: Train on synthetic data
+        run: |
+          python ai/gen_synthetic.py --days 4 --out ai/data/synthetic.csv
+          python ai/train.py --data ai/data/synthetic.csv
+      - name: Closed-loop self-test (simulator -> AI -> fan -> alerts)
+        run: python ai/service.py --selftest
+      - name: Simulator output
+        run: python tools/mqtt_simulator.py --dry-run --count 3
+      - name: No secrets committed
+        run: |
+          ! git ls-files | grep -E '(^|/)secrets\.h$|(^|/)\.env$|\.pem$|\.key$'

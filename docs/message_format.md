@@ -33,12 +33,18 @@ different certificates, so the list has 2 entries (checked 2026-11-10).
 ### 2a. `@msg/lensguard/data` — one full record per message (AI service subscribes)
 ```json
 {"node_id":"box_A","seq":1042,"boot":51234,"ts":1762750000123,"temp":28.4,"rh":52.1,"valid":1,"door":0,"reason":0,"tries":1}
-{"node_id":"gateway","seq":88,"ts":1762750000456,"temp_out":30.2,"ldr":310,"gas":118,"fan_box_A":1,"fan_box_B":0,"buffered":0}
+{"node_id":"gateway","seq":88,"ts":1762750000456,"temp_out":30.2,"ldr":310,"gas":118,"fan_box_A":1,"fan_box_B":0,
+ "buffered":0,"buf_lost":0,"uptime_s":86400,"rssi":-61,"heap":187000,"rx_ok":5712,"rx_dup":3,"mqtt_connects":2}
+{"node_id":"gateway","ts":0,"event":"boot","detail":"TASK_WDT","value":0.0}
 {"node_id":"gateway","ts":1762750000789,"event":"fan","box":"box_A","detail":"ai","value":1.0}
 {"node_id":"gateway","ts":1762750000999,"event":"silica","box":"box_B","detail":"rh_drop_too_small","value":1.2}
 ```
 - `ts` = epoch **milliseconds** when the gateway received/created the record (NTP). 0 = clock not synced yet.
 - `fan` event `detail`: `ai`, `fallback`, `timeout`, `no_data`, `ota`.
+- Gateway heartbeat (every 30 s): `uptime_s`, `rssi` (dBm, 0 = Wi-Fi down), free `heap`, `rx_ok` / `rx_dup` (ESP-NOW packets
+  forwarded / duplicates dropped), `mqtt_connects` (> 1 = it reconnected by itself), `buffered` / `buf_lost` (offline buffer).
+- `boot` event, once per start, `detail` = reset reason (`POWERON`, `SW`, `PANIC`, `TASK_WDT`, `BROWNOUT`, …).
+  Crash/watchdog/brown-out reasons trigger a Telegram message.
 - Records produced while offline are kept in a 120-entry ring buffer and re-sent in order when MQTT is back (E4).
 
 ### 2b. `@shadow/data/update` — same record, flattened with the node id as prefix (dashboard / feed)
@@ -65,5 +71,9 @@ Sent every minute per box. The gateway only reads `node_id` and `fan`.
 5. No data from that box for 90 s → OFF.
 6. Fallback (AI/cloud down): RH ≥ 55 % → ON, RH ≤ 45 % → OFF.
 
-## 5. Logs written by `ai/service.py` (git-ignored, used by `ai/prepare.py` and `tools/metrics.py`)
+## 5. Self-recovery (`common/protocol.h`)
+Task watchdog 60 s on every node and gateway task (a hung task → reboot) · Wi-Fi down 5 min → `WiFi.begin()` again ·
+Wi-Fi up but MQTT failing 15 min → reboot (buffered records are lost in that case) · nodes re-scan channels when the gateway moves.
+
+## 6. Logs written by `ai/service.py` (git-ignored, used by `ai/prepare.py` and `tools/metrics.py`)
 `ai/data/live.jsonl` (every record + `rx_ms`), `ai/data/predictions.jsonl`, `ai/data/alerts.jsonl`.

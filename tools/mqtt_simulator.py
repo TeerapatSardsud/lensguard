@@ -63,6 +63,7 @@ class FakeGateway:
             self.boxes[b].eff = 0.03
         self.loss, self.gw_seq, self.lock = loss, 0, threading.Lock()
         self.now = start_ms if start_ms is not None else int(time.time() * 1000)
+        self.start, self.rx_ok, self.booted = self.now, 0, False
 
     def on_fan_cmd(self, cmd: dict):
         with self.lock:
@@ -89,6 +90,9 @@ class FakeGateway:
         """Advance 30 s; return the records the gateway would publish."""
         out = []
         with self.lock:
+            if not self.booted:                                       # firmware emits this once per boot
+                self.booted = True
+                out.append({"node_id": "gateway", "ts": self.now, "event": "boot", "detail": "POWERON", "value": 0.0})
             self.now += STEP_MS
             hour = (self.now / 3_600_000 + 7) % 24
             rh_out = 72 + 8 * random.random() - 6 * (1 if 10 <= hour <= 17 else 0)
@@ -99,6 +103,7 @@ class FakeGateway:
                 rec = self._box_record(b, reason=0)
                 if random.random() >= self.loss:
                     out.append(rec)
+                    self.rx_ok += 1
             # fan logic = fanTask() in gateway/src/main.cpp
             for b in self.boxes.values():
                 if b.fan and self.now - b.fan_since >= FAN_MAX_ON_MS:
@@ -119,7 +124,9 @@ class FakeGateway:
                     self._set_fan(b, 0, "fallback", out)
             self.gw_seq += 1
             gw = {"node_id": "gateway", "seq": self.gw_seq, "ts": self.now, "temp_out": round(t_out, 1),
-                  "ldr": random.randint(200, 400), "gas": random.randint(100, 140), "buffered": 0}
+                  "ldr": random.randint(200, 400), "gas": random.randint(100, 140), "buffered": 0, "buf_lost": 0,
+                  "uptime_s": (self.now - self.start) // 1000, "rssi": random.randint(-70, -50),
+                  "heap": random.randint(180_000, 200_000), "rx_ok": self.rx_ok, "rx_dup": 0, "mqtt_connects": 1}
             gw.update({f"fan_{k}": b.fan for k, b in self.boxes.items()})
             out.append(gw)
         return out
