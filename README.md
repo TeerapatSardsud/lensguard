@@ -15,6 +15,8 @@ docs/      message_format, pin_map, test_plan, report_outline, checkpoint_video_
 material/  proposal, course brief, 3D model
 ```
 
+**Current status and who does what: [docs/STATUS.md](docs/STATUS.md)**
+
 ## Quick start (no hardware, no accounts)
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt    # then use .venv/bin/python
