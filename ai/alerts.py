@@ -40,8 +40,9 @@ class Telegram:
 
 
 class AlertEngine:
-    def __init__(self, sender, boxes=("box_A", "box_B"), door_after_s=120, log_path=None):
+    def __init__(self, sender, boxes=("box_A", "box_B"), door_after_s=120, log_path=None, on_sent=None):
         self.sender, self.boxes, self.door_after_s, self.log_path = sender, boxes, door_after_s, log_path
+        self.on_sent = on_sent                    # e.g. Dashboard.on_alert(kind, box, text, sent_ms)
         self.last_sent = {}                       # (kind, box) -> wall time
         self.high_count = {b: 0 for b in boxes}
         self.door_since = {}                      # box -> (wall time opened, record ts)
@@ -55,10 +56,12 @@ class AlertEngine:
             return
         self.last_sent[(kind, box)] = now
         ok = self.sender.send(text)
+        if self.on_sent:
+            self.on_sent(kind, box, text, int(now * 1000))
         if self.log_path:                         # used by tools/metrics.py for the alert-latency metric
             with open(self.log_path, "a") as f:
                 f.write(json.dumps({"kind": kind, "box": box, "sent_ms": int(now * 1000),
-                                    "trigger_ts": trigger_ts, "ok": ok}) + "\n")
+                                    "trigger_ts": trigger_ts, "ok": ok, "text": text}, ensure_ascii=False) + "\n")
 
     def on_record(self, r, rh_pred=None):
         nid, now = r.get("node_id"), time.time()
