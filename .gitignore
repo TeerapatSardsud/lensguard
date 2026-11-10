@@ -1,0 +1,15 @@
+# secrets — NEVER commit
+secrets.h
+**/secrets.h
+.env
+*.pem
+*.key
+
+# build / tools
+.pio/
+.vscode/
+__pycache__/
+*.pyc
+.venv/
+ai/data/*.csv
+ai/model.joblib
