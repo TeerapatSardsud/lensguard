@@ -22,6 +22,9 @@ portal.netpie.io → create a Project → create a **Device Group** → create *
 | `lensguard-gateway` | real gateway (and `tools/mqtt_simulator.py` before hardware) | `gateway/include/secrets.h` and `NETPIE_*` in `.env` |
 | `lensguard-ai` | `ai/service.py` | `AI_NETPIE_*` in `.env` |
 
+**Status 2026-11-10:** project `P567622029659` with both devices exists; steps 1 and 3 below were verified
+(shadow keys appear, `@msg` travels both ways, closed loop works with the simulator). Steps 2 and 4 are still open.
+
 Then, to verify (write down what you find in this file):
 1. Run `python tools/mqtt_simulator.py --period 2`; the gateway device's **Shadow** should show `box_A_rh`, `box_B_rh`, `gateway_temp_out` …
 2. Enable data storage (**Feed**) on the gateway device; define the numeric fields (`box_A_rh`, `box_A_temp`, `box_A_door`, the same for box_B,

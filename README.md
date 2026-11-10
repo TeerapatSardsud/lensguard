@@ -47,9 +47,10 @@ PlatformIO is already installed with the VS Code extension: `~/.platformio/penv/
 - **Compiles**: node (box_A, box_B) and gateway (gateway, gateway_ota), with both `SIMULATE_SENSOR=1` and `=0`.
   Never flashed to a board yet.
 - **Tested offline**: Python pipeline, AI service closed loop (`--selftest`), prepare → train → metrics on simulated logs.
-- **Tested online**: TLS certificate pinning against the real mqtt.netpie.io (10/10 handshakes).
-- **Not yet verified**: publishing/subscribing with real NETPIE credentials (topic permissions, `@msg` delivery between
-  two devices of one group, feed storage of shadow fields), real Telegram bot, OTA on a board.
+- **Tested online (NETPIE project P567622029659, 2026-11-10)**: TLS pinning + login for both devices, shadow write/read
+  (`box_A_rh` …), `@msg/lensguard/data` gateway→AI and `@msg/lensguard/fan` AI→gateway, and the full closed loop
+  simulator ↔ NETPIE ↔ `ai/service.py` (gateway followed AI commands, `detail:"ai"`).
+- **Not yet verified**: Feed storage of shadow fields, dashboard, real Telegram bot, OTA on a board.
 - **AI numbers are from synthetic/simulated data — not results for the report.** Retrain on ≥ 48 h of real logs.
 
 ## External code / AI usage (keep updated for the report)
