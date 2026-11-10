@@ -26,6 +26,7 @@
 | E4 reliable comms | ACK/retry/back-off + duplicate filter + channel scan; gateway ring buffer | tests E3, F1 |
 | E5 security | MQTT over TLS + certificate pinning, secrets only in `secrets.h`/`.env` (git-ignored) | test F7 |
 | E6 OTA | `ArduinoOTA` + `gateway_ota` env | test F8 |
+| Robustness (III) | task watchdog, Wi-Fi re-begin, MQTT reboot rule, `boot` event with reset reason, heartbeat | tests F1–F10 |
 | E3 low power (spare) | not implemented | — |
 
 Metrics (rubric IV, ≥3 + repetition): delivery rate, latency (record + door + alert), sensor accuracy, AI MAE vs persistence, uptime —

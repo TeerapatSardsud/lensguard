@@ -7,6 +7,8 @@
 //   cloudTask   Wi-Fi, MQTT/TLS (E5), offline buffer (E4), OTA (E6) 1      blocking network I/O, lowest
 // Queues: onRecv -> rxQueue -> espnowTask;  everyone -> pubQueue -> cloudTask;
 //         MQTT callback (inside cloudTask) -> fanCmdQueue -> fanTask.  Box state shared under stateMutex.
+// Self-recovery: every task is registered with the task watchdog (WDT_TIMEOUT_S); Wi-Fi is re-begun after
+// WIFI_REBEGIN_MS; reboot if MQTT keeps failing for MQTT_RESTART_MS. A "boot" event reports the reset reason.
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -16,6 +18,7 @@
 #include <esp_now.h>
 #include <esp_wifi.h>
 #include <sys/time.h>
+#include <esp_task_wdt.h>
 #include "protocol.h"
 #include "packet.h"
 #include "secrets.h"           // copy gateway/include/secrets.example.h -> secrets.h (git-ignored)
@@ -57,6 +60,7 @@ static PubSubClient mqtt(tlsClient);
 static char ring[OFFLINE_BUFFER][JSON_MAX];
 static int ringHead = 0, ringCount = 0;
 static uint32_t statBuffered = 0, statBufferDropped = 0;
+static volatile uint32_t statRxOk = 0, statRxDup = 0, statMqttConnects = 0;   // heartbeat counters
 
 // ---------------------------------------------------------------- helpers
 static int boxIndex(const char *id) {
@@ -105,8 +109,10 @@ static void sendAck(const uint8_t *mac, uint32_t seq) {
 
 static void espnowTask(void *) {
   RxItem it;
+  esp_task_wdt_add(nullptr);
   for (;;) {
-    xQueueReceive(rxQueue, &it, portMAX_DELAY);
+    esp_task_wdt_reset();
+    if (xQueueReceive(rxQueue, &it, pdMS_TO_TICKS(1000)) != pdTRUE) continue;   // wake to feed the watchdog
     const DataPacket &p = it.pkt;
     sendAck(it.mac, p.seq);                          // ACK first: the node is waiting
     char id[9] = {0}; memcpy(id, p.node_id, 8);
@@ -126,7 +132,8 @@ static void espnowTask(void *) {
     }
     Serial.printf("[rx] %s seq=%lu RH=%.1f door=%u tries=%u%s\n", id, (unsigned long)p.seq, p.rh, p.door,
                   p.tries, duplicate ? " (duplicate, not forwarded)" : "");
-    if (duplicate) continue;
+    if (duplicate) { statRxDup++; continue; }
+    statRxOk++;
 
     JsonDocument d;
     d["node_id"] = id; d["seq"] = p.seq; d["boot"] = p.boot_id; d["ts"] = nowEpochMs();
@@ -149,7 +156,9 @@ static void setFan(int b, bool on, const char *why) {          // caller holds s
 
 static void fanTask(void *) {
   FanCmd cmd;
+  esp_task_wdt_add(nullptr);
   for (;;) {
+    esp_task_wdt_reset();
     // wake every second, or immediately when the AI sends a command
     if (xQueueReceive(fanCmdQueue, &cmd, pdMS_TO_TICKS(1000)) == pdTRUE && cmd.box >= 0) {
       xSemaphoreTake(stateMutex, portMAX_DELAY);
@@ -184,7 +193,9 @@ static void fanTask(void *) {
 static void sensorTask(void *) {
   uint32_t seq = 0;
   TickType_t last = xTaskGetTickCount();
+  esp_task_wdt_add(nullptr);
   for (;;) {
+    esp_task_wdt_reset();
     float tOut; int ldr, gas; bool tOk = true;
 #if SIMULATE_SENSOR
     tOut = 30.0f + 2.0f * sinf(millis() / 80000.0f); ldr = 300 + random(-30, 30); gas = 120 + random(-10, 10);
@@ -200,7 +211,12 @@ static void sensorTask(void *) {
     xSemaphoreTake(stateMutex, portMAX_DELAY);
     for (int b = 0; b < NUM_BOXES; b++) d[String("fan_") + BOX_IDS[b]] = boxes[b].fanOn ? 1 : 0;
     xSemaphoreGive(stateMutex);
-    d["buffered"] = ringCount;   // read without lock: diagnostic only
+    // heartbeat (read without locks: diagnostics only) -> dashboard + robustness evidence
+    d["buffered"] = ringCount; d["buf_lost"] = statBufferDropped;
+    d["uptime_s"] = (uint32_t)(esp_timer_get_time() / 1000000ULL);
+    d["rssi"] = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
+    d["heap"] = ESP.getFreeHeap();
+    d["rx_ok"] = statRxOk; d["rx_dup"] = statRxDup; d["mqtt_connects"] = statMqttConnects;
     enqueue(d);
     vTaskDelayUntil(&last, pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
   }
@@ -238,6 +254,7 @@ static bool mqttConnect() {
     Serial.printf("MQTT fail rc=%d\n", mqtt.state()); return false;
   }
   mqtt.subscribe(NETPIE_TOPIC_FAN);
+  statMqttConnects++;
   Serial.println("ok");
   return true;
 }
@@ -283,13 +300,21 @@ static void setupOta() {
 }
 
 static void cloudTask(void *) {
-  uint32_t lastWifiTry = 0, lastMqttTry = 0;
+  uint32_t lastWifiTry = 0, lastMqttTry = 0, wifiDownSince = 0, mqttDownSince = millis();
   bool otaReady = false, timeConfigured = false;
   PubItem it;
+  esp_task_wdt_add(nullptr);           // a TLS connect that hangs > WDT_TIMEOUT_S reboots the gateway
   for (;;) {
+    esp_task_wdt_reset();
     bool wifiUp = WiFi.status() == WL_CONNECTED;
+    if (wifiUp) wifiDownSince = 0;
+    else if (!wifiDownSince) wifiDownSince = millis();
     if (!wifiUp && millis() - lastWifiTry > 10000) {
-      lastWifiTry = millis(); Serial.println("[wifi] reconnecting"); WiFi.reconnect();
+      lastWifiTry = millis();
+      if (millis() - wifiDownSince > WIFI_REBEGIN_MS) {          // reconnect() alone sometimes never recovers
+        Serial.println("[wifi] down too long -> WiFi.begin() again");
+        WiFi.disconnect(); WiFi.begin(WIFI_SSID, WIFI_PASSWORD); wifiDownSince = millis();
+      } else { Serial.println("[wifi] reconnecting"); WiFi.reconnect(); }
     }
     if (wifiUp && !timeConfigured) {
       configTime(7 * 3600, 0, "pool.ntp.org", "time.navy.mi.th"); timeConfigured = true;
@@ -299,7 +324,13 @@ static void cloudTask(void *) {
     if (wifiUp && !otaReady) { setupOta(); otaReady = true; }
     if (otaReady) ArduinoOTA.handle();
 
-    if (wifiUp && !mqtt.connected() && millis() - lastMqttTry > 5000) { lastMqttTry = millis(); mqttConnect(); }
+    if (wifiUp && !mqtt.connected() && millis() - lastMqttTry > 5000) {
+      lastMqttTry = millis(); mqttConnect(); esp_task_wdt_reset();
+    }
+    if (mqtt.connected() || !wifiUp) mqttDownSince = millis();    // only count "Wi-Fi OK but MQTT failing"
+    else if (millis() - mqttDownSince > MQTT_RESTART_MS) {
+      Serial.println("[mqtt] failing for too long with Wi-Fi up -> reboot"); delay(200); ESP.restart();
+    }
     mqtt.loop();
 
     // drain records produced by other tasks: publish now, or buffer while offline (E4)
@@ -316,6 +347,16 @@ static void cloudTask(void *) {
 }
 
 // ---------------------------------------------------------------- setup
+static const char *resetReason() {
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON:  return "POWERON";   case ESP_RST_SW:       return "SW";
+    case ESP_RST_PANIC:    return "PANIC";     case ESP_RST_INT_WDT:  return "INT_WDT";
+    case ESP_RST_TASK_WDT: return "TASK_WDT";  case ESP_RST_WDT:      return "WDT";
+    case ESP_RST_BROWNOUT: return "BROWNOUT";  case ESP_RST_EXT:      return "EXT";
+    default:               return "OTHER";
+  }
+}
+
 void setup() {
   for (int b = 0; b < NUM_BOXES; b++) { pinMode(FAN_PINS[b], OUTPUT); digitalWrite(FAN_PINS[b], LOW); }
   Serial.begin(115200); delay(300);
@@ -328,6 +369,8 @@ void setup() {
   rxQueue     = xQueueCreate(20, sizeof(RxItem));
   pubQueue    = xQueueCreate(16, sizeof(PubItem));
   fanCmdQueue = xQueueCreate(8, sizeof(FanCmd));
+  esp_task_wdt_init(WDT_TIMEOUT_S, true);       // re-configure Arduino's 5 s default; panic -> reboot
+  emitEvent("boot", -1, resetReason(), 0);      // queued, published once MQTT is up (robustness evidence)
 
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);                 // keep the radio awake so ESP-NOW frames are not missed
@@ -337,7 +380,7 @@ void setup() {
 
   mqtt.setServer(NETPIE_HOST, NETPIE_PORT_TLS);
   mqtt.setCallback(onMqtt);
-  mqtt.setBufferSize(512);
+  mqtt.setBufferSize(1024);                    // flattened heartbeat shadow is ~400 bytes
   mqtt.setKeepAlive(30);
 
   if (esp_now_init() != ESP_OK) { Serial.println("ESP-NOW init failed"); ESP.restart(); }
