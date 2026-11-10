@@ -34,7 +34,12 @@ Then, to verify (write down what you find in this file):
 4. Dashboard (Freeboard in NETPIE): gauges RH box_A / box_B, time-series chart of both RH + 55 % line, door state, fan state per box,
    outside temperature, "last update" time.
 
-## 3. Telegram (owner: cloud/dashboard)
+## 2b. Web dashboard (owner: Natthadon) — `ai/web/index.html`, served by `ai/service.py` on port 8080
+A first version exists (cards per box, RH chart with fan strip, table view, alerts, dark mode). Natthadon owns it from here:
+read it, adjust wording/layout with real users (photo club), and explain it in Q&A. NETPIE Freeboard is optional now;
+the Feed (step 2 above) is still needed as cloud storage (M5).
+
+## 3. Telegram (owner: cloud/dashboard) — DONE 2026-11-10: @Lensguardbot → group "Lensguard"
 Follow the header of `tools/telegram_test.py` (BotFather → token → chat id → test message). Put both values in `.env`.
 Add the bot to the group chat so everyone sees the alerts.
 

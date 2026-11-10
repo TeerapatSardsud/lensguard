@@ -17,7 +17,7 @@
 | M2 actuator | 2 DC fans via MOSFET, `fanTask` in `gateway/src/main.cpp` | video of fan |
 | M3 node → gateway | ESP-NOW, `common/packet.h` | serial logs |
 | M4 AI closed loop | `ai/service.py` → `@msg/lensguard/fan` → gateway | `[cmd]` log + fan event `ai` |
-| M5 cloud + dashboard | NETPIE shadow + feed, Freeboard | screenshots |
+| M5 cloud + dashboard | NETPIE shadow + feed (storage); web dashboard `ai/web/index.html` | screenshots |
 | M6 notification | `ai/alerts.py` (Telegram) | phone screenshots |
 | M7 safety | 5 V/12 V DC only, fan 30-min timeout + cool-down, flyback diode | `FAN_MAX_ON_MS`, test E4 |
 | M8 Git | GitHub repo, all 5 members | `git shortlog -sn` |
