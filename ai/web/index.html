@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LensGuard Dashboard</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f3f2ee;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
+  --s1: #2a78d6; --s2: #eb6834;
+  --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
+  --radius: 14px;
+  font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", "Leelawadee UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+    --s1: #3987e5; --s2: #d95926;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); line-height: 1.45; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 20px 16px 40px; }
+header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+.logo { width: 34px; height: 34px; border-radius: 10px; background: var(--s1); display: grid; place-items: center; }
+.brand h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+.brand p { margin: 0; font-size: 13px; color: var(--ink-2); }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--ring); font-size: 13px; color: var(--ink-2); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.live { background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 22%, transparent); }
+.dot.dead { background: var(--critical); }
+button { font: inherit; color: inherit; cursor: pointer; }
+.iconbtn { border: 0; background: var(--surface); box-shadow: inset 0 0 0 1px var(--ring); border-radius: 999px;
+  padding: 6px 12px; font-size: 13px; color: var(--ink-2); }
+.iconbtn:hover { background: var(--surface-2); }
+.banner { background: color-mix(in srgb, var(--warning) 16%, var(--surface)); box-shadow: inset 0 0 0 1px var(--ring);
+  border-radius: 10px; padding: 10px 14px; font-size: 14px; margin-bottom: 16px; display: flex; gap: 8px; align-items: center; }
+main { transition: opacity .2s; }
+main.stale { opacity: .55; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.card { background: var(--surface); border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--ring); padding: 18px; min-width: 0; }
+.card h2 { font-size: 15px; margin: 0; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.key { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.online { font-size: 12px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.hero { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 10px; }
+.hero .num { font-size: 52px; font-weight: 650; letter-spacing: -0.03em; line-height: 1; }
+.hero .unit { font-size: 15px; color: var(--ink-2); }
+.hero .sub { margin-left: auto; text-align: right; font-size: 13px; color: var(--ink-2); }
+.hero .sub b { display: block; font-size: 18px; color: var(--ink); font-weight: 600; }
+.card.off .hero .num { color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 999px; font-size: 13px;
+  background: var(--surface-2); color: var(--ink); }
+.chip svg { width: 14px; height: 14px; flex: none; }
+.chip.good    { background: color-mix(in srgb, var(--good) 14%, var(--surface)); }
+.chip.warning { background: color-mix(in srgb, var(--warning) 20%, var(--surface)); }
+.chip.serious { background: color-mix(in srgb, var(--serious) 18%, var(--surface)); }
+.chip.critical{ background: color-mix(in srgb, var(--critical) 16%, var(--surface)); }
+.chip.good svg { color: var(--good); } .chip.warning svg { color: #b57f00; } .chip.serious svg { color: var(--serious); }
+.chip.critical svg { color: var(--critical); }
+:root[data-theme="dark"] .chip.warning svg { color: var(--warning); }
+@media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) .chip.warning svg { color: var(--warning); } }
+.ai { border-top: 1px solid var(--grid); padding-top: 12px; display: grid; gap: 6px; font-size: 14px; }
+.row { display: flex; justify-content: space-between; gap: 10px; }
+.row span:first-child { color: var(--ink-2); }
+.row b { font-weight: 600; text-align: right; }
+.fan-ico.spin { animation: spin 1.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .fan-ico.spin { animation: none; } }
+.sys { display: grid; gap: 8px; font-size: 14px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 22px 0 10px; }
+.seg { display: inline-flex; background: var(--surface); box-shadow: inset 0 0 0 1px var(--ring); border-radius: 999px; padding: 3px; }
+.seg button { border: 0; background: transparent; padding: 5px 14px; border-radius: 999px; font-size: 13px; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); font-weight: 600; }
+.chart-card { position: relative; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart { width: 100%; display: block; margin-top: 8px; touch-action: pan-y; }
+.chart:focus-visible { outline: 2px solid var(--s1); outline-offset: 4px; border-radius: 8px; }
+.chart text { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.chart .end { fill: var(--ink); font-size: 12px; font-weight: 600; }
+.chart .thr { fill: var(--ink-2); font-size: 11px; }
+.empty { padding: 60px 0; text-align: center; color: var(--muted); font-size: 14px; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); box-shadow: 0 6px 24px rgba(0,0,0,.14), inset 0 0 0 1px var(--ring);
+  border-radius: 10px; padding: 10px 12px; font-size: 13px; min-width: 170px; display: none; z-index: 2; }
+.tip .t { color: var(--ink-2); margin-bottom: 6px; font-size: 12px; }
+.tip .r { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+.tip .r b { font-size: 15px; } .tip .r span { color: var(--ink-2); }
+.tip .k { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background: var(--surface); }
+.table-wrap { max-height: 360px; overflow: auto; margin-top: 10px; }
+.alerts { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 2px; }
+.alerts li { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--grid); font-size: 14px; }
+.alerts li:last-child { border-bottom: 0; }
+.alerts .when { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.alerts .txt { white-space: pre-line; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-top: 14px; }
+.foot { margin-top: 20px; font-size: 12px; color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="5"/><path d="M4 8h3l2-3h6l2 3h3v12H4z"/></svg>
+      </div>
+      <div><h1>LensGuard</h1><p>ตู้กันชื้นอัจฉริยะ · กลุ่ม TuaKorm</p></div>
+    </div>
+    <span class="pill" id="conn"><span class="dot"></span><span>กำลังเชื่อมต่อ…</span></span>
+    <button class="iconbtn" id="theme" type="button" aria-label="สลับธีม">ธีม: อัตโนมัติ</button>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+
+  <main id="main">
+    <section class="cards" id="cards" aria-label="สถานะกล่อง"></section>
+
+    <div class="toolbar" role="toolbar" aria-label="ตัวกรองช่วงเวลา">
+      <div class="seg" id="range">
+        <button type="button" data-min="60">1 ชม.</button>
+        <button type="button" data-min="360">6 ชม.</button>
+        <button type="button" data-min="1440">24 ชม.</button>
+      </div>
+      <button class="iconbtn" id="tableBtn" type="button" aria-pressed="false">ดูเป็นตาราง</button>
+    </div>
+
+    <section class="card chart-card" aria-labelledby="chartTitle">
+      <div class="card-head">
+        <h2 id="chartTitle">ความชื้นในกล่อง (%RH)</h2>
+        <div class="legend" id="legend"></div>
+      </div>
+      <svg class="chart" id="chart" tabindex="0" role="img" aria-label="กราฟความชื้นย้อนหลัง ใช้ปุ่มลูกศรซ้ายขวาเพื่ออ่านค่า"></svg>
+      <div class="tip" id="tip" role="status"></div>
+      <div class="table-wrap" id="tableWrap" hidden></div>
+    </section>
+
+    <div class="grid2">
+      <section class="card" aria-labelledby="alertTitle">
+        <div class="card-head"><h2 id="alertTitle">การแจ้งเตือนล่าสุด</h2><span class="online">ส่งเข้า Telegram ด้วย</span></div>
+        <ul class="alerts" id="alerts"></ul>
+      </section>
+      <section class="card" aria-labelledby="evTitle">
+        <div class="card-head"><h2 id="evTitle">เหตุการณ์พัดลม / ระบบ</h2></div>
+        <ul class="alerts" id="events"></ul>
+      </section>
+    </div>
+    <p class="foot" id="foot"></p>
+  </main>
+</div>
+
+<script>
+"use strict";
+const BOXES = [["box_A", "กล่อง A", "--s1"], ["box_B", "กล่อง B", "--s2"]];
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+let state = null, range = Number(store.get("lg.range", "360")), showTable = false, cursor = null;
+
+// ---------- small DOM helpers (data always goes in via textContent) ----------
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v; else if (k === "style") n.style.cssText = v; else n.setAttribute(k, v);
+  }
+  for (const k of kids) n.append(k instanceof Node ? k : document.createTextNode(String(k)));
+  return n;
+}
+const SVGNS = "http://www.w3.org/2000/svg";
+function s(tag, attrs = {}, text) {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (text != null) n.textContent = text;
+  return n;
+}
+function icon(name) {
+  const paths = {
+    ok: "M5 12.5l4 4 10-10", warn: "M12 4l9 16H3zM12 10v4M12 17.5v.5", x: "M6 6l12 12M18 6L6 18",
+    door: "M5 21V4h10v17M15 6l4 1v14M12 12h.01", fan: "M12 12m-1.6 0a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M12 10.4C11 7 12 4 14.5 4s2 4-2.5 6.4M13.6 12c3.4-1 6.4 0 6.4 2.5s-4 2-6.4-2.5M12 13.6c1 3.4 0 6.4-2.5 6.4s-2-4 2.5-6.4M10.4 12C7 13 4 12 4 9.5s4-2 6.4 2.5",
+    salt: "M7 21h10l-1-12H8zM9 9V6a3 3 0 0 1 6 0v3", wifi: "M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01",
+    reboot: "M4 12a8 8 0 1 0 2.3-5.7M4 4v4h4", bell: "M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4",
+  };
+  const svg = document.createElementNS(SVGNS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("fill", "none"); svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2"); svg.setAttribute("stroke-linecap", "round"); svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  svg.append(s("path", { d: paths[name] || paths.bell }));
+  return svg;
+}
+function chip(level, ico, text) { return el("span", { class: "chip " + (level || "") }, icon(ico), text); }
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fmt1 = (v) => (v == null ? "–" : Number(v).toFixed(1));
+const hhmm = (t) => new Date(t).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false });
+function ago(ms) {
+  if (ms == null) return "–";
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return s + " วินาทีที่แล้ว";
+  if (s < 3600) return Math.round(s / 60) + " นาทีที่แล้ว";
+  if (s < 86400) return Math.round(s / 3600) + " ชม.ที่แล้ว";
+  return Math.round(s / 86400) + " วันที่แล้ว";
+}
+function dur(ms) {
+  const m = Math.round(ms / 60000);
+  return m < 1 ? "ไม่ถึงนาที" : m < 60 ? m + " นาที" : Math.floor(m / 60) + " ชม. " + (m % 60) + " นาที";
+}
+
+// ---------- status of one box (status colours always come with icon + words) ----------
+function rhStatus(rh, th) {
+  if (rh == null) return ["", "x", "ไม่มีข้อมูล"];
+  if (rh >= th.alert) return ["critical", "warn", "ชื้นเกิน — เสี่ยงเชื้อรา"];
+  if (rh >= th.fan_on) return ["serious", "warn", "ชื้น — พัดลมควรทำงาน"];
+  if (rh > th.fan_off + 5) return ["warning", "warn", "เริ่มชื้น — เฝ้าดู"];
+  return ["good", "ok", "แห้งกำลังดี"];
+}
+const FAN_WHY = { ai: "AI สั่ง", fallback: "กฎสำรอง (ไม่มีคำสั่ง AI)", timeout: "ครบ 30 นาที — พักเครื่อง", no_data: "ไม่มีข้อมูลจากกล่อง", ota: "กำลังอัปเดตเฟิร์มแวร์" };
+
+function boxCard([id, name, color], d, st) {
+  const card = el("article", { class: "card" + (d.online ? "" : " off"), "aria-label": name });
+  const onl = el("span", { class: "online" }, el("span", { class: "dot " + (d.online ? "live" : "dead") }),
+    d.online ? "ออนไลน์" : "ออฟไลน์ · " + ago(d.last_rx_ms ? st.server_now_ms - d.last_rx_ms : null));
+  card.append(el("div", { class: "card-head" },
+    el("h2", {}, el("span", { class: "key", style: `background:var(${color})` }), name), onl));
+
+  const hero = el("div", { class: "hero" },
+    el("span", { class: "num" }, d.rh == null ? "–" : Math.round(d.rh)),
+    el("span", { class: "unit" }, "%RH"),
+    el("span", { class: "sub" }, "อุณหภูมิ", el("b", {}, d.temp == null ? "–" : fmt1(d.temp) + " °C")));
+  card.append(hero);
+
+  const [lvl, ico, txt] = d.online ? rhStatus(d.rh, st.thresholds) : ["critical", "x", "ไม่ได้รับข้อมูล"];
+  const chips = el("div", { class: "chips" }, chip(lvl, ico, txt));
+  if (d.door) chips.append(chip("warning", "door", "ฝาเปิด" + (d.door_since ? " " + dur(st.data_now_ms - d.door_since) : "")));
+  else chips.append(chip("", "door", "ฝาปิด"));
+  if (d.valid === 0) chips.append(chip("critical", "warn", "เซนเซอร์อ่านค่าไม่ได้"));
+  card.append(chips);
+
+  const ai = el("div", { class: "ai" });
+  if (d.pred) {
+    const diff = d.pred.pred - (d.rh ?? d.pred.pred);
+    const arrow = diff > 0.5 ? "↗ " : diff < -0.5 ? "↘ " : "→ ";
+    ai.append(el("div", { class: "row" }, el("span", {}, "AI คาดอีก 10 นาที"), el("b", {}, arrow + fmt1(d.pred.pred) + "%")));
+  } else {
+    ai.append(el("div", { class: "row" }, el("span", {}, "AI คาดอีก 10 นาที"), el("b", {}, "กำลังเก็บข้อมูล (ต้องการ 16 นาที)")));
+  }
+  const fanEv = (st.events || []).find((e) => e.event === "fan" && e.box === id);
+  const fanIco = icon("fan"); fanIco.setAttribute("class", "fan-ico" + (d.fan ? " spin" : ""));
+  fanIco.style.cssText = "width:16px;height:16px;vertical-align:-3px;margin-right:6px;color:" + (d.fan ? `var(${color})` : "var(--muted)");
+  ai.append(el("div", { class: "row" }, el("span", {}, "พัดลม"),
+    el("b", {}, fanIco, (d.fan ? "ทำงาน" : "หยุด") + (fanEv ? " · " + (FAN_WHY[fanEv.detail] || fanEv.detail) : ""))));
+  card.append(ai);
+  return card;
+}
+
+function systemCard(st) {
+  const g = st.gateway || {};
+  const card = el("article", { class: "card" + (g.online ? "" : " off"), "aria-label": "ระบบ" });
+  card.append(el("div", { class: "card-head" }, el("h2", {}, "ระบบ"),
+    el("span", { class: "online" }, el("span", { class: "dot " + (g.online ? "live" : "dead") }), g.online ? "Gateway ออนไลน์" : "Gateway ออฟไลน์")));
+  const rssi = g.rssi, q = !rssi ? "–" : rssi > -60 ? "ดีมาก" : rssi > -70 ? "ดี" : rssi > -80 ? "พอใช้" : "อ่อน";
+  const rows = [
+    ["อุณหภูมินอกกล่อง", g.temp_out == null ? "–" : fmt1(g.temp_out) + " °C"],
+    ["สัญญาณ Wi-Fi", rssi ? `${q} (${rssi} dBm)` : "–"],
+    ["Gateway ทำงานต่อเนื่อง", g.uptime_s == null ? "–" : dur(g.uptime_s * 1000)],
+    ["ข้อมูลรอส่ง (อินเทอร์เน็ตหลุด)", g.buffered == null ? "–" : g.buffered + " รายการ"],
+    ["แพ็กเก็ตจาก node (ซ้ำ)", g.rx_ok == null ? "–" : `${g.rx_ok} (${g.rx_dup || 0})`],
+    ["โมเดล AI", st.model || "ยังไม่มีโมเดล — ใช้กฎสำรอง"],
+  ];
+  if (st.extra_nodes && st.extra_nodes.length) rows.push(["node อื่นที่พบ", st.extra_nodes.join(", ")]);
+  const sys = el("div", { class: "sys" });
+  for (const [k, v] of rows) sys.append(el("div", { class: "row" }, el("span", {}, k), el("b", {}, v)));
+  card.append(sys);
+  return card;
+}
+
+// ---------- chart: one y-axis (%RH), fan strip shares the x-axis ----------
+let geom = null;
+function drawChart(st) {
+  const svg = $("chart"); svg.replaceChildren();
+  const W = svg.clientWidth || 800, plotH = 240;
+  const m = { l: 58, r: 74, t: 10 }, stripTop = m.t + plotH + 12, rowH = 10, rowGap = 6;
+  const H = stripTop + 2 * rowH + rowGap + 26;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("height", H);
+  const series = BOXES.map(([id, name, color]) => ({ id, name, color: css(color), pts: st.boxes[id].series }));
+  const all = series.flatMap((x) => x.pts);
+  if (!all.length) {
+    svg.setAttribute("height", 140); svg.setAttribute("viewBox", `0 0 ${W} 140`);
+    svg.append(s("text", { x: W / 2, y: 70, "text-anchor": "middle", style: "font-size:14px" }, "ยังไม่มีข้อมูลในช่วงเวลานี้"));
+    geom = null; return;
+  }
+  const x1 = st.data_now_ms, x0 = x1 - st.range_min * 60000;
+  const rhs = all.map((p) => p[1]);
+  const th = st.thresholds;
+  const lo = Math.min(40, Math.floor((Math.min(...rhs) - 2) / 5) * 5);
+  const hi = Math.max(th.alert + 5, Math.ceil((Math.max(...rhs) + 2) / 5) * 5);
+  const X = (t) => m.l + ((t - x0) / (x1 - x0)) * (W - m.l - m.r);
+  const Y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * plotH;
+
+  // grid + y ticks (solid hairlines, recessive)
+  for (let v = Math.ceil(lo / 10) * 10; v <= hi; v += 10) {
+    svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--grid"), "stroke-width": 1 }));
+    svg.append(s("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end" }, v + "%"));
+  }
+  // thresholds: thin neutral rules, labelled in words
+  for (const [v, label] of [[th.alert, "แจ้งเตือน"], [th.fan_on, "พัดลมเริ่ม"], [th.fan_off, "พัดลมหยุด"]]) {
+    if (v < lo || v > hi) continue;
+    svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--axis"), "stroke-width": 1 }));
+    svg.append(s("text", { class: "thr", x: m.l + 6, y: Y(v) - 4 }, `${v}% ${label}`));
+  }
+  // x ticks
+  // pick the smallest "nice" tick step that leaves >= 60 px between labels (phones get fewer ticks)
+  const plotW = W - m.l - m.r;
+  const step = [5, 10, 15, 30, 60, 120, 180, 240, 360, 720].find((st_) => (plotW / (st.range_min / st_)) >= 60) || 720;
+  const first = Math.ceil(x0 / (step * 60000)) * step * 60000;
+  for (let t = first; t <= x1; t += step * 60000) {
+    svg.append(s("text", { x: X(t), y: H - 6, "text-anchor": "middle" }, hhmm(t)));
+  }
+  svg.append(s("line", { x1: m.l, x2: W - m.r, y1: m.t + plotH, y2: m.t + plotH, stroke: css("--axis"), "stroke-width": 1 }));
+
+  // lines (break on gaps > 3 min)
+  for (const se of series) {
+    let d = "", prev = null;
+    for (const p of se.pts) {
+      d += (prev && p[0] - prev[0] <= 180000 ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1);
+      prev = p;
+    }
+    svg.append(s("path", { d, fill: "none", stroke: se.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+  }
+  // end markers + direct labels (nudged apart if they collide)
+  const ends = series.filter((se) => se.pts.length).map((se) => ({ se, p: se.pts[se.pts.length - 1], y: Y(se.pts[se.pts.length - 1][1]) }));
+  if (ends.length === 2 && Math.abs(ends[0].y - ends[1].y) < 16) {
+    const [a, b] = ends[0].y < ends[1].y ? ends : [ends[1], ends[0]];
+    const mid = (a.y + b.y) / 2; a.ly = mid - 8; b.ly = mid + 8;
+  }
+  for (const e of ends) {
+    svg.append(s("circle", { cx: X(e.p[0]), cy: e.y, r: 4, fill: e.se.color, stroke: css("--surface"), "stroke-width": 2 }));
+    svg.append(s("text", { class: "end", x: W - m.r + 10, y: (e.ly ?? e.y) + 4 }, `${e.se.name.slice(-1)} ${Math.round(e.p[1])}%`));
+  }
+  // fan strip
+  series.forEach((se, i) => {
+    const y = stripTop + i * (rowH + rowGap);
+    svg.append(s("text", { x: m.l - 8, y: y + rowH - 1, "text-anchor": "end" }, "พัดลม " + se.name.slice(-1)));
+    svg.append(s("rect", { x: m.l, y, width: W - m.l - m.r, height: rowH, rx: 3, fill: css("--surface-2") }));
+    let start = null;
+    const flush = (end) => { if (start != null) svg.append(s("rect", { x: X(start), y, width: Math.max(2, X(end) - X(start)), height: rowH, rx: 3, fill: se.color, opacity: 0.85 })); start = null; };
+    se.pts.forEach((p, j) => {
+      if (p[2] && start == null) start = p[0];
+      if (!p[2] && start != null) flush(p[0]);
+      if (j === se.pts.length - 1) flush(p[0] + 60000);
+    });
+  });
+  // hover layer
+  const cross = s("line", { y1: m.t, y2: stripTop + 2 * rowH + rowGap, stroke: css("--ink-2"), "stroke-width": 1, visibility: "hidden" });
+  const dots = series.map((se) => s("circle", { r: 4, fill: se.color, stroke: css("--surface"), "stroke-width": 2, visibility: "hidden" }));
+  svg.append(cross, ...dots);
+  const hit = s("rect", { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: "transparent" });
+  svg.append(hit);
+  geom = { X, Y, x0, x1, m, W, series, cross, dots };
+  hit.addEventListener("pointermove", (ev) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((ev.clientX - r.left) / r.width) * W;
+    showAt(x0 + ((px - m.l) / (W - m.l - m.r)) * (x1 - x0));
+  });
+  hit.addEventListener("pointerleave", hideTip);
+  if (cursor != null) showAt(cursor);
+}
+function nearest(pts, t) {
+  let lo = 0, hi = pts.length - 1;
+  if (hi < 0) return null;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (pts[mid][0] < t) lo = mid; else hi = mid; }
+  const p = Math.abs(pts[lo][0] - t) <= Math.abs(pts[hi][0] - t) ? pts[lo] : pts[hi];
+  return Math.abs(p[0] - t) <= 120000 ? p : null;
+}
+function showAt(t) {
+  if (!geom) return;
+  t = Math.max(geom.x0, Math.min(geom.x1, t)); cursor = t;
+  const tip = $("tip"); tip.replaceChildren(el("div", { class: "t" }, hhmm(t)));
+  geom.cross.setAttribute("x1", geom.X(t)); geom.cross.setAttribute("x2", geom.X(t)); geom.cross.setAttribute("visibility", "visible");
+  geom.series.forEach((se, i) => {
+    const p = nearest(se.pts, t), dot = geom.dots[i];
+    if (p) { dot.setAttribute("cx", geom.X(p[0])); dot.setAttribute("cy", geom.Y(p[1])); dot.setAttribute("visibility", "visible"); }
+    else dot.setAttribute("visibility", "hidden");
+    tip.append(el("div", { class: "r" }, el("span", { class: "k", style: `background:${se.color}` }),
+      el("b", {}, p ? fmt1(p[1]) + "%" : "–"), el("span", {}, se.name + (p ? (p[2] ? " · พัดลมทำงาน" : " · พัดลมหยุด") : ""))));
+  });
+  const svgR = $("chart").getBoundingClientRect(), cardR = $("chart").parentElement.getBoundingClientRect();
+  const px = svgR.left - cardR.left + (geom.X(t) / geom.W) * svgR.width;
+  tip.style.display = "block";
+  const left = px + 14 + tip.offsetWidth > cardR.width - 8 ? px - 14 - tip.offsetWidth : px + 14;
+  tip.style.left = Math.max(8, left) + "px"; tip.style.top = (svgR.top - cardR.top + 12) + "px";
+}
+function hideTip() {
+  cursor = null; $("tip").style.display = "none";
+  if (geom) { geom.cross.setAttribute("visibility", "hidden"); geom.dots.forEach((d) => d.setAttribute("visibility", "hidden")); }
+}
+$("chart").addEventListener("keydown", (e) => {
+  if (!geom) return;
+  const step = Math.max(60000, (geom.x1 - geom.x0) / 60);
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    showAt((cursor ?? geom.x1) + (e.key === "ArrowLeft" ? -step : step));
+  } else if (e.key === "Escape") hideTip();
+});
+$("chart").addEventListener("blur", hideTip);
+
+// ---------- table view (same data as the chart) ----------
+function drawTable(st) {
+  const wrap = $("tableWrap");
+  if (!showTable) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  const rows = new Map();
+  BOXES.forEach(([id], i) => st.boxes[id].series.forEach((p) => {
+    const r = rows.get(p[0]) || [null, null, null, null]; r[i] = p[1]; r[i + 2] = p[2]; rows.set(p[0], r);
+  }));
+  const keys = [...rows.keys()].sort((a, b) => b - a).slice(0, 240);
+  const tb = el("tbody");
+  for (const k of keys) {
+    const r = rows.get(k);
+    tb.append(el("tr", {}, el("td", {}, hhmm(k)), el("td", {}, fmt1(r[0])), el("td", {}, fmt1(r[1])),
+      el("td", {}, r[2] == null ? "–" : r[2] ? "ทำงาน" : "หยุด"), el("td", {}, r[3] == null ? "–" : r[3] ? "ทำงาน" : "หยุด")));
+  }
+  const t = el("table", {}, el("caption", { class: "sr" }, "ค่าความชื้นรายนาที ล่าสุดอยู่บน"),
+    el("thead", {}, el("tr", {}, el("th", {}, "เวลา"), el("th", {}, "RH กล่อง A (%)"), el("th", {}, "RH กล่อง B (%)"),
+      el("th", {}, "พัดลม A"), el("th", {}, "พัดลม B"))), tb);
+  wrap.replaceChildren(t);
+}
+
+// ---------- alerts + events ----------
+const ALERT_ICON = { rh_high: ["critical", "warn"], door_open: ["warning", "door"], silent: ["critical", "wifi"], online: ["good", "ok"],
+  silica: ["serious", "salt"], reboot: ["warning", "reboot"] };
+function drawLists(st) {
+  const ul = $("alerts"); ul.replaceChildren();
+  if (!st.alerts.length) ul.append(el("li", {}, el("span"), el("span", { class: "txt", style: "color:var(--muted)" }, "ยังไม่มีการแจ้งเตือน"), el("span")));
+  for (const a of st.alerts) {
+    const [lvl, ico] = ALERT_ICON[a.kind] || ["", "bell"];
+    const i = icon(ico); i.style.cssText = `width:18px;height:18px;color:var(--${lvl || "muted"})`;
+    const txt = String(a.text).replace(/^\S+\s+LensGuard:\s*/u, "");   // the row icon replaces the emoji prefix
+    ul.append(el("li", {}, i, el("span", { class: "txt" }, txt), el("span", { class: "when" }, ago(st.server_now_ms - a.sent_ms))));
+  }
+  const ev = $("events"); ev.replaceChildren();
+  const list = (st.events || []).slice(0, 10);
+  if (!list.length) ev.append(el("li", {}, el("span"), el("span", { class: "txt", style: "color:var(--muted)" }, "ยังไม่มีเหตุการณ์"), el("span")));
+  for (const e of list) {
+    let ico = "fan", text;
+    const box = e.box ? "กล่อง " + e.box.slice(-1) : "";
+    if (e.event === "fan") text = `พัดลม${box} ${Number(e.value) ? "เริ่มทำงาน" : "หยุด"} · ${FAN_WHY[e.detail] || e.detail}`;
+    else if (e.event === "silica") {
+      ico = "salt"; const d = Number(e.value);
+      text = `${box}: ซิลิกาเจลน่าจะอิ่มตัว (พัดลม 30 นาที ความชื้น${d >= 0 ? "ลดลงแค่ " + d.toFixed(1) : "กลับเพิ่มขึ้น " + (-d).toFixed(1)}%)`;
+    }
+    else if (e.event === "boot") { ico = "reboot"; text = `Gateway เริ่มทำงาน (${e.detail})`; }
+    else text = e.event;
+    const i = icon(ico); i.style.cssText = "width:18px;height:18px;color:var(--muted)";
+    ev.append(el("li", {}, i, el("span", { class: "txt" }, text), el("span", { class: "when" }, e.ts ? hhmm(e.ts) : "")));
+  }
+}
+
+// ---------- render + polling ----------
+function render(st) {
+  $("cards").replaceChildren(...BOXES.map((b) => boxCard(b, st.boxes[b[0]], st)), systemCard(st));
+  $("legend").replaceChildren(...BOXES.map(([, name, color]) => el("span", {}, el("span", { class: "key", style: `background:var(${color})` }), name)));
+  drawChart(st); drawTable(st); drawLists(st);
+  const b = $("banner"); b.hidden = !st.banner; b.replaceChildren(icon("warn"), st.banner || "");
+  b.firstChild.style.cssText = "width:16px;height:16px;flex:none";
+  const last = Math.max(0, ...Object.values(st.boxes).map((x) => x.last_rx_ms || 0), st.gateway.rx_ms || 0);
+  setConn(true, last ? "อัปเดตล่าสุด " + ago(st.server_now_ms - last) : "รอข้อมูลจาก gateway");
+  $("foot").textContent = "ข้อมูลรีเฟรชทุก 5 วินาที · เกณฑ์: พัดลมเริ่ม " + st.thresholds.fan_on + "% หยุด " + st.thresholds.fan_off +
+    "% แจ้งเตือน " + st.thresholds.alert + "% · ข้อมูลดิบเก็บบน NETPIE";
+}
+function setConn(ok, text) {
+  const p = $("conn"); p.replaceChildren(el("span", { class: "dot " + (ok ? "live" : "dead") }), el("span", {}, text));
+  $("main").classList.toggle("stale", !ok);
+}
+async function poll() {
+  try {
+    const r = await fetch("/api/state?range=" + range, { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    state = await r.json(); render(state);
+  } catch {
+    setConn(false, "ขาดการเชื่อมต่อกับ AI service — แสดงข้อมูลล่าสุด");
+  }
+}
+function setRange(min) {
+  range = min; store.set("lg.range", String(min));
+  for (const b of $("range").children) b.setAttribute("aria-pressed", String(Number(b.dataset.min) === min));
+  poll();
+}
+$("range").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setRange(Number(b.dataset.min)); });
+$("tableBtn").addEventListener("click", () => {
+  showTable = !showTable; $("tableBtn").setAttribute("aria-pressed", String(showTable));
+  $("tableBtn").textContent = showTable ? "ซ่อนตาราง" : "ดูเป็นตาราง"; if (state) drawTable(state);
+});
+// theme: auto -> light -> dark
+const THEMES = ["auto", "light", "dark"], TNAME = { auto: "อัตโนมัติ", light: "สว่าง", dark: "มืด" };
+function applyTheme(t) {
+  if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t);
+  $("theme").textContent = "ธีม: " + TNAME[t]; store.set("lg.theme", t); if (state) render(state);
+}
+$("theme").addEventListener("click", () => {
+  const cur = store.get("lg.theme", "auto"); applyTheme(THEMES[(THEMES.indexOf(cur) + 1) % 3]);
+});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => state && render(state));
+let resizeT; new ResizeObserver(() => { clearTimeout(resizeT); resizeT = setTimeout(() => state && drawChart(state), 120); }).observe($("chart"));
+const urlTheme = new URLSearchParams(location.search).get("theme");
+applyTheme(THEMES.includes(urlTheme) ? urlTheme : store.get("lg.theme", "auto"));
+setRange([60, 360, 1440].includes(range) ? range : 360);
+setInterval(poll, 5000);
+</script>
+</body>
+</html>
