@@ -34,4 +34,6 @@ report mean / min / max (`tools/metrics.py` prints them). Keep failed attempts t
 | F5 | Sensor unplugged | Disconnect DHT22 data wire | `valid=0`, no fake RH on dashboard, fan does not act on it | |
 | F6 | Hotspot channel change | Change hotspot / restart it on another channel | nodes print `[scan] gateway found on channel N` | |
 | F7 | Wrong TLS server | Build with a wrong fingerprint in `NETPIE_CERT_SHA256_LIST` | gateway refuses to send credentials | |
+| F9 | Hung task | Temporary test build: add `while(true){}` in `sensorTask` after 2 min | reboot after ~60 s, `boot` event `TASK_WDT`, Telegram "รีสตาร์ทตัวเอง" | |
+| F10 | Long Wi-Fi outage | Hotspot off 10 min | log `WiFi.begin() again` after 5 min; reconnects by itself when hotspot is back | |
 | F8 | OTA | `pio run -d gateway -e gateway_ota -t upload` | new firmware runs; fans OFF during update | |

@@ -51,8 +51,14 @@
 #endif
 
 // Offline buffer on the gateway (records kept while the Internet is down, then re-sent)
-#define OFFLINE_BUFFER   120     // x JSON_MAX bytes of RAM
-#define JSON_MAX         200
+#define OFFLINE_BUFFER   120     // x JSON_MAX bytes of RAM (~38 KB)
+#define JSON_MAX         320     // gateway heartbeat record is the longest (~260 bytes)
+
+// --- self-recovery (rubric III Robustness: "recovers by itself after a power or Wi-Fi loss") ----
+#define WDT_TIMEOUT_S      60                      // task watchdog: a hung task -> reboot
+#define WIFI_REBEGIN_MS    (5UL * 60 * 1000)       // Wi-Fi down this long -> full WiFi.begin() again
+#define MQTT_RESTART_MS    (15UL * 60 * 1000)      // Wi-Fi up but MQTT failing this long -> reboot
+                                                   // (stuck TLS/network stack; buffered records are lost)
 
 // Sensor nodes the gateway tracks (fan + last RH per box). Index = position in this list.
 #define NODE_IDS         { "box_A", "box_B" }

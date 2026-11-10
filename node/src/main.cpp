@@ -6,10 +6,12 @@
 //   sensorTask DHT22 every SAMPLE_PERIOD_MS      2      periodic, not time critical
 // Communication: reedISR --doorQueue--> doorTask --txQueue--> commTask <--notify(seq)-- onRecv (ACK)
 //                sensorTask --txQueue--> commTask;  lastReading shared under readingMutex
+// Self-recovery: all three tasks are registered with the task watchdog (WDT_TIMEOUT_S) -> reboot if one hangs.
 #include <Arduino.h>
 #include <WiFi.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+#include <esp_task_wdt.h>
 #include "protocol.h"
 #include "packet.h"
 
@@ -142,7 +144,9 @@ static bool findGatewayChannel(DataPacket &p) {
 // ---- tasks ----
 static void sensorTask(void *) {
   TickType_t last = xTaskGetTickCount();
+  esp_task_wdt_add(nullptr);
   for (;;) {
+    esp_task_wdt_reset();
     readSensor();
     DataPacket p = makePacket(statPackets == 0 ? REASON_BOOT : REASON_PERIODIC);
     if (xQueueSend(txQueue, &p, 0) != pdTRUE) Serial.println("[warn] tx queue full, reading dropped");
@@ -153,8 +157,10 @@ static void sensorTask(void *) {
 static void doorTask(void *) {
   uint8_t lastDoor = readDoor();
   uint32_t tick;
+  esp_task_wdt_add(nullptr);
   for (;;) {
-    xQueueReceive(doorQueue, &tick, portMAX_DELAY);
+    esp_task_wdt_reset();
+    if (xQueueReceive(doorQueue, &tick, pdMS_TO_TICKS(1000)) != pdTRUE) continue;
     vTaskDelay(pdMS_TO_TICKS(DOOR_DEBOUNCE_MS));                  // let the contact settle
     while (xQueueReceive(doorQueue, &tick, 0) == pdTRUE) {}       // drop bounce edges
     uint8_t door = readDoor();
@@ -169,8 +175,10 @@ static void doorTask(void *) {
 static void commTask(void *) {
   DataPacket p;
   uint32_t consecutiveFails = 0;
+  esp_task_wdt_add(nullptr);
   for (;;) {
-    xQueueReceive(txQueue, &p, portMAX_DELAY);
+    esp_task_wdt_reset();
+    if (xQueueReceive(txQueue, &p, pdMS_TO_TICKS(1000)) != pdTRUE) continue;
     statPackets++;
     bool ok = sendWithRetry(p);
     if (!ok && ++consecutiveFails >= FAILS_BEFORE_SCAN) ok = findGatewayChannel(p);
@@ -210,6 +218,7 @@ void setup() {
   peer.encrypt = false;
   if (esp_now_add_peer(&peer) != ESP_OK) Serial.println("add_peer failed");
 
+  esp_task_wdt_init(WDT_TIMEOUT_S, true);       // re-configure Arduino's 5 s default; panic -> reboot
   readingMutex = xSemaphoreCreateMutex();
   txQueue   = xQueueCreate(20, sizeof(DataPacket));
   doorQueue = xQueueCreate(16, sizeof(uint32_t));
