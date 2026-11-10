@@ -26,13 +26,13 @@
 #if !SIMULATE_SENSOR
   #include <OneWire.h>
   #include <DallasTemperature.h>
-  OneWire oneWire(18);
+  OneWire oneWire(16);          // DS18B20 on GPIO16 (RX2), 4.7k pull-up (docs/pin_map.md)
   DallasTemperature ds18(&oneWire);
 #endif
 
 #define LDR_PIN 34             // ADC1 only (ADC2 is unusable while Wi-Fi is on)
 #define MQ_PIN  35
-static const uint8_t FAN_PINS[NUM_BOXES] = {25, 26};   // box_A, box_B MOSFET gates
+static const uint8_t FAN_PINS[NUM_BOXES] = {26, 27};   // box_A, box_B MOSFET gates (docs/pin_map.md)
 static const char   *BOX_IDS[NUM_BOXES]  = NODE_IDS;
 #define BOX_STALE_MS (3UL * SAMPLE_PERIOD_MS)           // no data for this long -> treat RH as unknown
 

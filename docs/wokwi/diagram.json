@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "author": "LensGuard (TuaKorm) - full system view",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp_a", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-dht22", "id": "a_dht", "top": -100, "left": 200, "attrs": {} },
+    {
+      "type": "wokwi-slide-switch",
+      "id": "a_sw",
+      "top": 196.4,
+      "left": 214.3,
+      "rotate": 180,
+      "attrs": {}
+    },
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp_b", "top": 400, "left": 0, "attrs": {} },
+    { "type": "wokwi-dht22", "id": "b_dht", "top": 300, "left": 200, "attrs": {} },
+    {
+      "type": "wokwi-slide-switch",
+      "id": "b_sw",
+      "top": 594.2,
+      "left": 204.9,
+      "rotate": 180,
+      "attrs": {}
+    },
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp_gw", "top": 0, "left": 650, "attrs": {} },
+    { "type": "wokwi-ds18b20", "id": "ds1", "top": -164.33, "left": 887.28, "attrs": {} },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": -60,
+      "left": 800,
+      "attrs": { "value": "4700" }
+    },
+    {
+      "type": "wokwi-photoresistor-sensor",
+      "id": "ldr1",
+      "top": 12.6,
+      "left": 1006,
+      "rotate": 180,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "pot1",
+      "top": 232.5,
+      "left": 913,
+      "rotate": 180,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 32.75,
+      "left": 528,
+      "rotate": 90,
+      "attrs": { "value": "220" }
+    },
+    { "type": "wokwi-led", "id": "led1", "top": 30, "left": 460, "attrs": { "color": "blue" } },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": 99.95,
+      "left": 528,
+      "rotate": 90,
+      "attrs": { "value": "220" }
+    },
+    { "type": "wokwi-led", "id": "led2", "top": 100, "left": 460, "attrs": { "color": "cyan" } }
+  ],
+  "connections": [
+    [ "a_dht:VCC", "esp_a:3V3", "red", [ "v0" ] ],
+    [ "a_dht:GND", "esp_a:GND.1", "black", [ "v0" ] ],
+    [ "a_dht:SDA", "esp_a:D4", "green", [ "v0" ] ],
+    [ "a_sw:2", "esp_a:D33", "green", [ "v0" ] ],
+    [ "a_sw:1", "esp_a:GND.1", "black", [ "v0" ] ],
+    [ "b_dht:VCC", "esp_b:3V3", "red", [ "v0" ] ],
+    [ "b_dht:GND", "esp_b:GND.1", "black", [ "v0" ] ],
+    [ "b_dht:SDA", "esp_b:D4", "green", [ "v0" ] ],
+    [ "b_sw:2", "esp_b:D33", "green", [ "v0" ] ],
+    [ "b_sw:1", "esp_b:GND.1", "black", [ "v0" ] ],
+    [ "ds1:VCC", "esp_gw:3V3", "red", [ "v0" ] ],
+    [ "ds1:GND", "esp_gw:GND.1", "black", [ "v0" ] ],
+    [ "ds1:DQ", "esp_gw:RX2", "green", [ "v0" ] ],
+    [ "r1:1", "ds1:DQ", "green", [ "v0" ] ],
+    [ "r1:2", "esp_gw:3V3", "red", [ "v0" ] ],
+    [ "ldr1:VCC", "esp_gw:3V3", "red", [ "v0" ] ],
+    [ "ldr1:GND", "esp_gw:GND.1", "black", [ "v0" ] ],
+    [ "ldr1:AO", "esp_gw:D34", "orange", [ "v0" ] ],
+    [ "pot1:VCC", "esp_gw:3V3", "red", [ "v0" ] ],
+    [ "pot1:GND", "esp_gw:GND.1", "black", [ "v0" ] ],
+    [ "pot1:SIG", "esp_gw:D35", "orange", [ "v0" ] ],
+    [ "esp_gw:D26", "r2:1", "blue", [ "v0" ] ],
+    [ "r2:2", "led1:A", "blue", [ "v0" ] ],
+    [ "led1:C", "esp_gw:GND.2", "black", [ "v0" ] ],
+    [ "esp_gw:D27", "r3:1", "cyan", [ "v0" ] ],
+    [ "r3:2", "led2:A", "cyan", [ "v0" ] ],
+    [ "led2:C", "esp_gw:GND.2", "black", [ "v0" ] ]
+  ],
+  "dependencies": {}
+}
