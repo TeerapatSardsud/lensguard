@@ -13,3 +13,4 @@ __pycache__/
 .venv/
 ai/data/*.csv
 ai/model.joblib
+.DS_Store
