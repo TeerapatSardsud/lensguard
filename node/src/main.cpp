@@ -25,7 +25,7 @@
   DHT dht(DHT_PIN, DHT22);
 #endif
 
-#define REED_PIN 27            // reed switch to GND, INPUT_PULLUP: magnet near (lid closed) = LOW
+#define REED_PIN 33            // reed switch to GND, INPUT_PULLUP: magnet near (lid closed) = LOW (docs/pin_map.md)
 
 static uint8_t gatewayMac[6] = GATEWAY_MAC;
 static QueueHandle_t txQueue;          // DataPacket
