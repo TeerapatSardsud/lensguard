@@ -2,6 +2,7 @@
   rh_high      box RH >= RH_ALERT for 2 readings in a row
   door_open    lid open longer than door_after_s (0 = alert immediately; used to measure latency)
   node_silent  no record from a box / the gateway for SILENT_S  (+ a "back online" message)
+  reboot       gateway restarted because of a crash/watchdog/brown-out (not power-on, not OTA)
   silica       gateway reports the fan ran a full cycle but RH barely dropped -> regenerate the gel
 Each alert type is rate-limited per box (COOLDOWN_S) so the phone is not spammed.
 """
@@ -65,6 +66,12 @@ class AlertEngine:
         if nid in self.silent:
             self.silent.discard(nid)
             self._fire("online", nid, f"✅ LensGuard: {nid} กลับมาส่งข้อมูลแล้ว", force=True)
+        if nid == "gateway" and r.get("event") == "boot":
+            why = r.get("detail", "?")
+            if why in ("PANIC", "TASK_WDT", "INT_WDT", "WDT", "BROWNOUT"):
+                self._fire("reboot", nid, f"🔄 LensGuard: gateway รีสตาร์ทตัวเอง (สาเหตุ {why}) "
+                                          "— ระบบกลับมาทำงานแล้ว ถ้าเกิดบ่อยแจ้งคนดูแล gateway", trigger_ts=r.get("ts"))
+            return
         if nid == "gateway" and r.get("event") == "silica":
             b, drop = r.get("box", "?"), float(r.get("value", 0))
             change = f"ลดลงแค่ {drop:.1f}%" if drop >= 0 else f"กลับเพิ่มขึ้น {-drop:.1f}%"

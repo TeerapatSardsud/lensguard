@@ -19,6 +19,7 @@ import argparse
 import json
 import os
 import queue
+import signal
 import sys
 import time
 from collections import deque
@@ -151,6 +152,8 @@ def main():
     ap.add_argument("--port", type=int, default=netpie.PORT_TLS)
     ap.add_argument("--no-tls", action="store_true")
     a = ap.parse_args()
+    sys.stdout.reconfigure(line_buffering=True)    # logs appear immediately in files / journalctl
+    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt))  # systemd stop = Ctrl+C
     netpie.load_dotenv()
     bundle = load_model(a.model)
 
