@@ -14,3 +14,8 @@ __pycache__/
 ai/data/*.csv
 ai/model.joblib
 .DS_Store
+
+# AI service logs / generated outputs (real logs are personal test data; export what the report needs)
+ai/data/*.jsonl
+ai/pred_vs_actual.png
+ai/train_report.json

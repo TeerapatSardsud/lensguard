@@ -1,5 +1,9 @@
 # Pin map & wiring (ESP32 DevKit, 30/38-pin) — DRAFT, verify against the real boards
 
+The fans are driven by the gateway, so each box needs a 2-wire cable from the gateway to its fan (see the 3D model in `material/`).
+BOM lists 1–2 MOSFETs: buy **2**. With only one, both fans would share one on/off state and the firmware
+(which controls each box separately) needs a code change — tell the gateway owner first.
+
 ## Node (box_A / box_B) — ESP32 + DHT22 + reed switch
 | Signal | ESP32 pin | Notes |
 |---|---|---|
@@ -8,25 +12,26 @@
 | Reed switch | GPIO27 ↔ GND | `INPUT_PULLUP`; magnet on the lid = closed (LOW), lid open = HIGH |
 | Power | USB 5 V (adapter or power bank) | |
 
-## Gateway — ESP32 + DS18B20 + LDR + MQ-135 + fan
+## Gateway — ESP32 + DS18B20 + LDR + MQ-135 + 2 fans (one per box)
 | Signal | ESP32 pin | Notes |
 |---|---|---|
 | DS18B20 DATA | GPIO18 | 4.7 kΩ pull-up DATA→3V3; measures **outside** temperature |
 | LDR divider | GPIO34 (ADC1) | 3V3 – LDR – node – 10 kΩ – GND; node → GPIO34 |
 | MQ-135 AO | GPIO35 (ADC1) | MQ-135 runs on 5 V; **AO can reach ~5 V** → divider (e.g. 10 kΩ top / 20 kΩ bottom) before the pin |
 | MQ-135 VCC / GND | 5 V (VIN) / GND | heater draws ~150 mA; needs warm-up before readings are meaningful |
-| Fan MOSFET gate | GPIO25 | via 100 Ω; 10 kΩ gate→GND pull-down so the fan is OFF at boot |
+| Fan box_A MOSFET gate | GPIO25 | via 100 Ω; 10 kΩ gate→GND pull-down so the fan is OFF at boot |
+| Fan box_B MOSFET gate | GPIO26 | same circuit, second MOSFET (`FAN_PINS` in `gateway/src/main.cpp`) |
 | Status LED (optional) | GPIO2 | |
 
 Use ADC1 pins (GPIO32–39) for analog: ADC2 does not work while Wi-Fi is on.
 GPIO34/35 are input-only (fine for sensors).
 
-## Fan driver (low-side switch)
+## Fan driver (low-side switch) — build this twice (box_A on GPIO25, box_B on GPIO26)
 ```
 Fan supply (+) ───────────────┬───────── Fan (+)
                               │  1N4007 flyback diode across the fan (stripe toward +)
 Fan (−) ──────── Drain  [N-MOSFET, logic-level, e.g. IRLZ44N / IRLZ34N]
-GPIO25 ─ 100Ω ─ Gate ─┬─ 10kΩ ─ GND
+GPIO25/26 ─ 100Ω ─ Gate ─┬─ 10kΩ ─ GND
                 Source ──────── GND  (common with ESP32 GND!)
 ```
 - Use the voltage of the fan you actually bought (check the label). If the fan is 5 V, USB 5 V is fine; if 12 V, use a separate 12 V adapter and **join the grounds**.
