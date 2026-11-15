@@ -54,8 +54,15 @@
 #define OFFLINE_BUFFER   120     // x JSON_MAX bytes of RAM (~38 KB)
 #define JSON_MAX         320     // gateway heartbeat record is the longest (~260 bytes)
 
+// --- gateway sensors ----------------------------------------------------
+#define ADC_SAMPLES        8                       // LDR / MQ-135 readings averaged per sample (ESP32 ADC is noisy)
+#define MQ_WARMUP_MS       (3UL * 60 * 1000)       // MQ-135 heater warm-up: "gas" is reported with gas_ready=0 before this
+
 // --- self-recovery (rubric III Robustness: "recovers by itself after a power or Wi-Fi loss") ----
 #define WDT_TIMEOUT_S      60                      // task watchdog: a hung task -> reboot
+#define BOOT_LOOP_CRASHES  3                       // this many crash/watchdog resets in a row (none of them
+                                                   // survived APP_STABLE_MS) -> boot the previous OTA firmware
+#define APP_STABLE_MS      (10UL * 60 * 1000)      // running this long = firmware is good, crash counter -> 0
 #define WIFI_REBEGIN_MS    (5UL * 60 * 1000)       // Wi-Fi down this long -> full WiFi.begin() again
 #define MQTT_RESTART_MS    (15UL * 60 * 1000)      // Wi-Fi up but MQTT failing this long -> reboot
                                                    // (stuck TLS/network stack; buffered records are lost)

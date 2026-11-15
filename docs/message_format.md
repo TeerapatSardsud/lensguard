@@ -43,8 +43,12 @@ different certificates, so the list has 2 entries (checked 2026-11-10).
 - `fan` event `detail`: `ai`, `fallback`, `timeout`, `no_data`, `ota`.
 - Gateway heartbeat (every 30 s): `uptime_s`, `rssi` (dBm, 0 = Wi-Fi down), free `heap`, `rx_ok` / `rx_dup` (ESP-NOW packets
   forwarded / duplicates dropped), `mqtt_connects` (> 1 = it reconnected by itself), `buffered` / `buf_lost` (offline buffer).
-- `boot` event, once per start, `detail` = reset reason (`POWERON`, `SW`, `PANIC`, `TASK_WDT`, `BROWNOUT`, …).
-  Crash/watchdog/brown-out reasons trigger a Telegram message.
+- `gas_ready` = 0 for the first 3 min after boot (MQ-135 heater warm-up): ignore `gas` while it is 0.
+  `ldr` / `gas` are the mean of `ADC_SAMPLES` = 8 raw readings.
+- `boot` event, once per start, `detail` = reset reason (`POWERON`, `SW`, `PANIC`, `TASK_WDT`, `BROWNOUT`, …),
+  `value` = crash resets in a row so far. Crash/watchdog/brown-out reasons trigger a Telegram message.
+  `detail` = `ROLLBACK` means the firmware crashed `BOOT_LOOP_CRASHES` (3) times in a row before running
+  `APP_STABLE_MS` (10 min) and the gateway booted the previous OTA image (`Update.rollBack()`).
 - Records produced while offline are kept in a 120-entry ring buffer and re-sent in order when MQTT is back (E4).
 
 ### 2b. `@shadow/data/update` — same record, flattened with the node id as prefix (dashboard / feed)
@@ -74,6 +78,12 @@ Sent every minute per box. The gateway only reads `node_id` and `fan`.
 ## 5. Self-recovery (`common/protocol.h`)
 Task watchdog 60 s on every node and gateway task (a hung task → reboot) · Wi-Fi down 5 min → `WiFi.begin()` again ·
 Wi-Fi up but MQTT failing 15 min → reboot (buffered records are lost in that case) · nodes re-scan channels when the gateway moves.
+
+## 5b. Telegram rules (`ai/alerts.py`)
+`rh_high` (≥ 60 % twice in a row) · `door_open` (lid open > 2 min) · `silent` / `online` (no record for 3 min) ·
+`silica` · `reboot` (crash / watchdog / brown-out / `ROLLBACK`) · `sensor_stuck` (identical RH and temperature
+for 30 min). One message per rule and box per 30 min. A failed Telegram call is retried after 5 / 15 / 45 s in
+the background; the AI control loop never waits for Telegram. AI forecasts are clamped to 0–100 %RH.
 
 ## 6. Logs written by `ai/service.py` (git-ignored, used by `ai/prepare.py` and `tools/metrics.py`)
 `ai/data/live.jsonl` (every record + `rx_ms`), `ai/data/predictions.jsonl`, `ai/data/alerts.jsonl`.

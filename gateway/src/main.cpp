@@ -9,7 +9,9 @@
 //         MQTT callback (inside cloudTask) -> fanCmdQueue -> fanTask.  Box state shared under stateMutex.
 // Self-recovery: every task is registered with the task watchdog (WDT_TIMEOUT_S); Wi-Fi is re-begun after
 // WIFI_REBEGIN_MS; reboot if MQTT keeps failing for MQTT_RESTART_MS. A "boot" event reports the reset reason.
+// Boot-loop guard (E6): BOOT_LOOP_CRASHES crash resets in a row -> Update.rollBack() to the previous firmware.
 #include <Arduino.h>
+#include <Update.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoOTA.h>
@@ -61,6 +63,11 @@ static char ring[OFFLINE_BUFFER][JSON_MAX];
 static int ringHead = 0, ringCount = 0;
 static uint32_t statBuffered = 0, statBufferDropped = 0;
 static volatile uint32_t statRxOk = 0, statRxDup = 0, statMqttConnects = 0;   // heartbeat counters
+
+// Survives every reset except power-on (RTC slow memory). Counts crash resets that happened before the
+// firmware ran APP_STABLE_MS; a boot loop after a bad OTA image therefore ends in a rollback (E6).
+#define CRASH_MAGIC 0x4C47424CUL
+RTC_NOINIT_ATTR static uint32_t crashMagic, crashCount, rolledBack;
 
 // ---------------------------------------------------------------- helpers
 static int boxIndex(const char *id) {
@@ -190,24 +197,36 @@ static void fanTask(void *) {
 }
 
 // ---------------------------------------------------------------- gateway sensors
+static int adcAvg(uint8_t pin) {                 // ESP32 ADC jitters by tens of counts: average a few reads
+  long sum = 0;
+  for (int i = 0; i < ADC_SAMPLES; i++) sum += analogRead(pin);
+  return (int)(sum / ADC_SAMPLES);
+}
+
 static void sensorTask(void *) {
   uint32_t seq = 0;
+  bool markedStable = false;
   TickType_t last = xTaskGetTickCount();
   esp_task_wdt_add(nullptr);
   for (;;) {
     esp_task_wdt_reset();
+    if (!markedStable && millis() > APP_STABLE_MS) {       // firmware proved itself: forget earlier crashes
+      markedStable = true; crashCount = 0;
+      Serial.println("[boot] stable for 10 min, crash counter cleared");
+    }
     float tOut; int ldr, gas; bool tOk = true;
 #if SIMULATE_SENSOR
     tOut = 30.0f + 2.0f * sinf(millis() / 80000.0f); ldr = 300 + random(-30, 30); gas = 120 + random(-10, 10);
 #else
     ds18.requestTemperatures(); tOut = ds18.getTempCByIndex(0);
-    tOk = tOut != DEVICE_DISCONNECTED_C;
-    ldr = analogRead(LDR_PIN); gas = analogRead(MQ_PIN);            // raw 12-bit ADC; calibrate later
+    tOk = tOut != DEVICE_DISCONNECTED_C;                             // -127 = no sensor / no 4.7k pull-up
+    ldr = adcAvg(LDR_PIN); gas = adcAvg(MQ_PIN);                    // raw 12-bit ADC; calibrate later
 #endif
     JsonDocument d;
     d["node_id"] = "gateway"; d["seq"] = ++seq; d["ts"] = nowEpochMs();
     if (tOk) d["temp_out"] = serialized(String(tOut, 1));
     d["ldr"] = ldr; d["gas"] = gas;
+    d["gas_ready"] = millis() >= MQ_WARMUP_MS ? 1 : 0;              // MQ-135 heater still warming up -> ignore gas
     xSemaphoreTake(stateMutex, portMAX_DELAY);
     for (int b = 0; b < NUM_BOXES; b++) d[String("fan_") + BOX_IDS[b]] = boxes[b].fanOn ? 1 : 0;
     xSemaphoreGive(stateMutex);
@@ -357,10 +376,27 @@ static const char *resetReason() {
   }
 }
 
+// Called first thing in setup(). Returns the detail string for the boot event.
+static const char *bootLoopGuard() {
+  esp_reset_reason_t r = esp_reset_reason();
+  if (crashMagic != CRASH_MAGIC) { crashMagic = CRASH_MAGIC; crashCount = 0; rolledBack = 0; }   // power-on: garbage
+  bool crash = r == ESP_RST_PANIC || r == ESP_RST_INT_WDT || r == ESP_RST_TASK_WDT || r == ESP_RST_WDT;
+  crashCount = crash ? crashCount + 1 : 0;
+  if (crash && crashCount >= BOOT_LOOP_CRASHES) {
+    Serial.printf("[boot] %lu crashes in a row -> rolling back to the previous firmware\n", (unsigned long)crashCount);
+    crashCount = 0;
+    if (Update.canRollBack() && Update.rollBack()) { rolledBack = 1; delay(100); ESP.restart(); }
+    Serial.println("[boot] no other valid firmware to roll back to, continuing with this one");
+  }
+  if (rolledBack) { rolledBack = 0; return "ROLLBACK"; }     // first boot of the restored firmware
+  return resetReason();
+}
+
 void setup() {
   for (int b = 0; b < NUM_BOXES; b++) { pinMode(FAN_PINS[b], OUTPUT); digitalWrite(FAN_PINS[b], LOW); }
   Serial.begin(115200); delay(300);
   Serial.printf("\nLensGuard gateway (simulate=%d)\n", SIMULATE_SENSOR);
+  const char *bootDetail = bootLoopGuard();
 #if !SIMULATE_SENSOR
   ds18.begin();
   analogSetPinAttenuation(LDR_PIN, ADC_11db); analogSetPinAttenuation(MQ_PIN, ADC_11db);
@@ -370,7 +406,7 @@ void setup() {
   pubQueue    = xQueueCreate(16, sizeof(PubItem));
   fanCmdQueue = xQueueCreate(8, sizeof(FanCmd));
   esp_task_wdt_init(WDT_TIMEOUT_S, true);       // re-configure Arduino's 5 s default; panic -> reboot
-  emitEvent("boot", -1, resetReason(), 0);      // queued, published once MQTT is up (robustness evidence)
+  emitEvent("boot", -1, bootDetail, crashCount); // queued, published once MQTT is up (robustness evidence)
 
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);                 // keep the radio awake so ESP-NOW frames are not missed

@@ -124,7 +124,8 @@ class FakeGateway:
                     self._set_fan(b, 0, "fallback", out)
             self.gw_seq += 1
             gw = {"node_id": "gateway", "seq": self.gw_seq, "ts": self.now, "temp_out": round(t_out, 1),
-                  "ldr": random.randint(200, 400), "gas": random.randint(100, 140), "buffered": 0, "buf_lost": 0,
+                  "ldr": random.randint(200, 400), "gas": random.randint(100, 140),
+                  "gas_ready": int(self.now - self.start >= 180_000), "buffered": 0, "buf_lost": 0,
                   "uptime_s": (self.now - self.start) // 1000, "rssi": random.randint(-70, -50),
                   "heap": random.randint(180_000, 200_000), "rx_ok": self.rx_ok, "rx_dup": 0, "mqtt_connects": 1}
             gw.update({f"fan_{k}": b.fan for k, b in self.boxes.items()})

@@ -89,7 +89,11 @@ class Engine:
         if f.empty:
             return df, None
         x = f.iloc[[-1]][self.bundle["feats"]]
-        return df, float(self.bundle["model"].predict(x)[0])
+        pred = float(self.bundle["model"].predict(x)[0])
+        if not (0.0 <= pred <= 100.0):            # linear models can extrapolate outside physical RH
+            self.stats["clamped"] = self.stats.get("clamped", 0) + 1
+            pred = min(100.0, max(0.0, pred))
+        return df, pred
 
     def tick(self, t):
         for b in BOXES:
