@@ -4,17 +4,22 @@
   node_silent  no record from a box / the gateway for SILENT_S  (+ a "back online" message)
   reboot       gateway restarted because of a crash/watchdog/brown-out (not power-on, not OTA)
   silica       gateway reports the fan ran a full cycle but RH barely dropped -> regenerate the gel
+  sensor_stuck a box repeats exactly the same RH and temperature for STUCK_S -> DHT22 probably frozen/unplugged
 Each alert type is rate-limited per box (COOLDOWN_S) so the phone is not spammed.
+A failed Telegram call is retried in the background (RETRY_DELAYS_S) so the control loop never blocks.
 """
 import json
 import os
+import threading
 import time
 import urllib.parse
 import urllib.request
 
 RH_ALERT = 60.0
 SILENT_S = 180
+STUCK_S = 30 * 60
 COOLDOWN_S = 30 * 60
+RETRY_DELAYS_S = (5, 15, 45)
 
 
 class Telegram:
@@ -25,18 +30,33 @@ class Telegram:
         if self.dry_run and not dry_run:
             print("[telegram] TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set -> alerts are only printed")
 
-    def send(self, text: str) -> bool:
-        if self.dry_run:
-            print("[telegram:dry]", text.replace("\n", " | "))
-            return True
+    def _post(self, text: str) -> bool:
         url = f"https://api.telegram.org/bot{self.token}/sendMessage"
         data = urllib.parse.urlencode({"chat_id": self.chat_id, "text": text}).encode()
         try:
             with urllib.request.urlopen(url, data=data, timeout=10) as r:
                 return json.load(r).get("ok", False)
-        except Exception as e:  # network down: log and carry on, the control loop must not die
+        except Exception as e:  # network down / API error: log and carry on, the control loop must not die
             print("[telegram] send failed:", e)
             return False
+
+    def _retry(self, text: str):
+        for i, delay in enumerate(RETRY_DELAYS_S, 1):
+            time.sleep(delay)
+            if self._post(text):
+                print(f"[telegram] delivered on retry {i}")
+                return
+        print("[telegram] gave up after retries:", text.replace("\n", " | "))
+
+    def send(self, text: str) -> bool:
+        """True = delivered on the first try. On failure the message is retried in a daemon thread."""
+        if self.dry_run:
+            print("[telegram:dry]", text.replace("\n", " | "))
+            return True
+        if self._post(text):
+            return True
+        threading.Thread(target=self._retry, args=(text,), daemon=True).start()
+        return False
 
 
 class AlertEngine:
@@ -49,6 +69,7 @@ class AlertEngine:
         self.door_alerted = set()
         self.last_seen = {}                       # node -> wall time
         self.silent = set()
+        self.same_since = {}                      # box -> ((rh, temp), wall time first seen)
 
     def _fire(self, kind, box, text, trigger_ts=None, force=False):
         now = time.time()
@@ -71,7 +92,10 @@ class AlertEngine:
             self._fire("online", nid, f"✅ LensGuard: {nid} กลับมาส่งข้อมูลแล้ว", force=True)
         if nid == "gateway" and r.get("event") == "boot":
             why = r.get("detail", "?")
-            if why in ("PANIC", "TASK_WDT", "INT_WDT", "WDT", "BROWNOUT"):
+            if why == "ROLLBACK":
+                self._fire("reboot", nid, "⏪ LensGuard: เฟิร์มแวร์ใหม่ของ gateway ค้างซ้ำหลายครั้ง "
+                                          "ระบบถอยกลับไปใช้เฟิร์มแวร์เดิมแล้ว — แจ้งคนดูแล gateway", trigger_ts=r.get("ts"))
+            elif why in ("PANIC", "TASK_WDT", "INT_WDT", "WDT", "BROWNOUT"):
                 self._fire("reboot", nid, f"🔄 LensGuard: gateway รีสตาร์ทตัวเอง (สาเหตุ {why}) "
                                           "— ระบบกลับมาทำงานแล้ว ถ้าเกิดบ่อยแจ้งคนดูแล gateway", trigger_ts=r.get("ts"))
             return
@@ -91,6 +115,15 @@ class AlertEngine:
                 if rh_pred is not None:
                     msg += f"\nAI คาดว่าอีก 10 นาที ≈ {rh_pred:.0f}%"
                 self._fire("rh_high", nid, msg + "\nพัดลมกำลังทำงาน / กรุณาตรวจสอบกล่อง", trigger_ts=r.get("ts"))
+            # frozen sensor: a live DHT22 flickers by 0.1 now and then; identical RH+temp for 30 min is suspicious
+            key = (round(rh, 1), round(float(r.get("temp", 0)), 1))
+            prev, since = self.same_since.get(nid, (None, now))
+            if key != prev:
+                self.same_since[nid] = (key, now)
+            elif now - since >= STUCK_S:
+                self._fire("sensor_stuck", nid, f"🧊 LensGuard: {nid} อ่านได้ค่าเดิมเป๊ะ (RH {key[0]}% / {key[1]}°C) "
+                                                f"มา {int((now - since) / 60)} นาที — เซ็นเซอร์ DHT22 อาจค้างหรือหลุด "
+                                                "กรุณาตรวจสาย", trigger_ts=r.get("ts"))
         if r.get("door"):
             self.door_since.setdefault(nid, (now, r.get("ts")))
         else:
