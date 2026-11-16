@@ -83,7 +83,7 @@
 | `dashboard.py` + `web/index.html` | เว็บ UX (กราฟ RH, สถานะกล่อง, alert, event) | มีแล้ว |
 | `prepare.py` | live.jsonl → CSV สำหรับเทรนด้วยข้อมูลจริง | มีแล้ว |
 | โมเดลจากข้อมูลจริง | ตอนนี้เทรนจาก synthetic เท่านั้น ต้องเก็บ ≥ 48 h แล้วเทรนใหม่ | ต้องทำ (สัปดาห์ 2–3) |
-| รันเป็น service (systemd บน Pi / launchd) | ให้ AI กลับมาเองหลังไฟดับ | ต้องทำตอนย้ายไป Pi |
+| รันเป็น service (systemd บน Pi) | ให้ AI กลับมาเองหลังไฟดับ: `deploy/install_pi.sh` + `deploy/lensguard-ai.service` (คู่มือ `docs/deploy_pi.md`) | มีแล้ว (รอทดสอบบน Pi จริง) |
 
 ### 1.5 เครื่องมือทดสอบและวัดผล (`tools/`)
 `mqtt_simulator.py` (จำลอง gateway+node ตรรกะเดียวกับเฟิร์มแวร์), `metrics.py` (delivery rate, latency, uptime, MAE), `telegram_test.py`, `netpie.py` (TLS pin, .env) — มีแล้ว, CI รันทุก PR
@@ -209,7 +209,7 @@
 | 4 | ~~AI clamp + sensor_stuck~~ ทำแล้ว 15 พ.ย. | | |
 | 5 | ~~Telegram retry~~ ทำแล้ว 15 พ.ย. | | |
 | 6 | ~~OTA ของ node~~ ตัดสินใจแล้ว: ทำเฉพาะ gateway เขียนไว้ในรายงาน | รายงาน | Teerapat |
-| 7 | systemd unit สำหรับ AI service บน Pi + README | `docs/`, `ai/` | Teerapat |
+| 7 | ~~systemd บน Pi~~ ทำแล้ว 16 พ.ย. (`deploy/`, `docs/deploy_pi.md`) — เพื่อนที่ดูแล Pi ทดสอบติดตั้งจริง | Pi | เจ้าของ Pi |
 | 8 | หลังของมาถึง: calibrate LDR, วัด delivery rate จริง, ตัดสินใจ unicast MAC | ทั้งหมด | ทุกคน (test plan F1–F10) |
 
 การทดสอบของแต่ละข้อผูกกับ `docs/test_plan.md` (N = node, E = ESP-NOW, F = full system) และ metric ใน `tools/metrics.py`

@@ -1,0 +1,22 @@
+# systemd unit for the LensGuard AI service on the Raspberry Pi.
+# Installed by deploy/install_pi.sh to /etc/systemd/system/lensguard-ai.service
+#   sudo systemctl status lensguard-ai      # is it running?
+#   journalctl -u lensguard-ai -f           # live log
+#   sudo systemctl restart lensguard-ai     # after git pull
+[Unit]
+Description=LensGuard AI service (RH forecast, fan control, Telegram alerts, web dashboard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__REPO__
+ExecStart=__REPO__/.venv/bin/python __REPO__/ai/service.py --http-port 8080
+Restart=always
+RestartSec=10
+# .env (NETPIE + Telegram) is read by the service itself from WorkingDirectory
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

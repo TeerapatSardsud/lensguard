@@ -36,6 +36,7 @@ python ai/service.py                                      # terminal 2: AI + ale
 **Dashboard:** open http://localhost:8080 (phones on the same Wi-Fi: the LAN address the service prints).
 For videos with simulated data add `--banner "ข้อมูลจำลองจาก simulator"`. `?theme=light|dark` forces a theme.
 Later the real gateway replaces the simulator; nothing else changes.
+**Raspberry Pi:** `bash deploy/install_pi.sh` installs the service so it starts on boot and restarts itself (see `docs/deploy_pi.md`).
 
 ## Firmware
 ```bash
