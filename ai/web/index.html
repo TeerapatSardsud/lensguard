@@ -67,6 +67,7 @@ button:focus-visible, .chart:focus-visible { outline: 2px solid var(--blue); out
 .wrap { max-width: 1120px; margin: 0 auto; padding: 16px 16px 40px; display: grid; gap: 24px; }
 .banner { background: color-mix(in srgb, var(--warning) 18%, var(--surface)); border-left: 4px solid var(--warning);
   border-radius: var(--r); padding: 10px 14px; font-size: 14px; display: flex; gap: 10px; align-items: center; }
+.banner[hidden] { display: none; }   /* .banner's display:flex overrides the hidden attribute without this */
 main { display: grid; gap: 24px; transition: opacity .2s; }
 main.stale { opacity: .55; }
 section > .sec { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -517,7 +518,8 @@ function render(st) {
   const b = $("banner"); b.hidden = !st.banner; b.replaceChildren(icon("warn"), st.banner || "");
   b.firstChild.style.cssText = "width:18px;height:18px;flex:none;color:var(--warning)";
   const last = Math.max(0, ...Object.values(st.boxes).map((x) => x.last_rx_ms || 0), st.gateway.rx_ms || 0);
-  setConn(true, last ? "อัปเดต " + ago(st.server_now_ms - last) : "รอข้อมูลจาก gateway");
+  const staleS = last ? (st.server_now_ms - last) / 1000 : Infinity;   // Pi receive time, not the device clock
+  setConn(staleS < 120, last ? "อัปเดต " + ago(st.server_now_ms - last) : "รอข้อมูลจาก gateway");
   $("foot").textContent = "Refresh ทุก 5 วินาที · เกณฑ์: Fan ON " + st.thresholds.fan_on + " % · Fan OFF " + st.thresholds.fan_off +
     " % · Alert " + st.thresholds.alert + " % · ข้อมูลดิบเก็บบน NETPIE";
 }
