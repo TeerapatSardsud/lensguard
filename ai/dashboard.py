@@ -23,6 +23,7 @@ from controller import OFF_THRESHOLD, ON_THRESHOLD
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 KEEP_MIN = 48 * 60          # history kept in memory (minutes)
 ONLINE_S = 120              # a node is "online" if it sent something within this many seconds
+STALE_BANNER_S = int(os.environ.get("LENSGUARD_STALE_BANNER_S", "300"))  # no record for this long -> auto banner (manual --banner wins)
 
 
 class Dashboard:
@@ -37,6 +38,7 @@ class Dashboard:
         self.alerts = deque(maxlen=30)
         self.events = deque(maxlen=30)                     # gateway events (fan / silica / boot)
         self.data_now = 0                                  # newest data timestamp seen (ms)
+        self.last_rx_ms = 0                                # newest Pi receive time (ms) - clock-trustworthy freshness
         self.started = int(time.time() * 1000)
 
     # ---------------------------------------------------------------- input
@@ -45,6 +47,7 @@ class Dashboard:
         nid = r.get("node_id")
         with self.lock:
             self.data_now = max(self.data_now, t)
+            self.last_rx_ms = max(self.last_rx_ms, r.get("rx_ms") or 0)
             if nid == "gateway":
                 if r.get("event"):
                     self.events.appendleft(r)
@@ -98,6 +101,22 @@ class Dashboard:
         return n
 
     # ---------------------------------------------------------------- output
+    def _banner(self, now):
+        """Manual --banner wins; otherwise auto-warn when records stopped arriving (Pi clock,
+        so a gateway clock skew can never hide an outage)."""
+        if self.banner:
+            return self.banner
+        if not self.last_rx_ms:
+            return ""                                      # never received anything: header already says so
+        stale_s = (now - self.last_rx_ms) / 1000
+        if stale_s < STALE_BANNER_S:
+            return ""
+        last_local = time.strftime("%d/%m %H:%M", time.localtime(self.last_rx_ms / 1000))
+        mins = int(stale_s // 60)
+        when = f"{mins} นาที" if mins < 60 else f"{mins / 60:.1f} ชั่วโมง"
+        return (f"ไม่ได้ข้อมูลใหม่มาราว {when} (รับล่าสุด {last_local}) — "
+                "ตรวจ gateway / เครือข่าย / NETPIE; พัดลมยังใช้กฎสำรอง 55/45 ที่ gateway ได้")
+
     def snapshot(self, range_min=360):
         now = int(time.time() * 1000)
         with self.lock:
@@ -118,7 +137,7 @@ class Dashboard:
             extra = sorted(n for n in self.latest if n not in self.boxes and n != "gateway")
             return {
                 "server_now_ms": now, "data_now_ms": self.data_now, "range_min": range_min,
-                "banner": self.banner, "model": self.model_name,
+                "banner": self._banner(now), "model": self.model_name, "last_rx_ms": self.last_rx_ms,
                 "thresholds": {"fan_on": ON_THRESHOLD, "fan_off": OFF_THRESHOLD, "alert": RH_ALERT},
                 "boxes": boxes, "gateway": gw, "extra_nodes": extra,
                 "alerts": list(self.alerts)[:15], "events": list(self.events)[:15],
