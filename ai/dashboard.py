@@ -101,21 +101,19 @@ class Dashboard:
         return n
 
     # ---------------------------------------------------------------- output
-    def _banner(self, now):
+    def _banner_spec(self, now):
         """Manual --banner wins; otherwise auto-warn when records stopped arriving (Pi clock,
-        so a gateway clock skew can never hide an outage)."""
+        so a gateway clock skew can never hide an outage). Returns (i18n_key, args, literal_text)
+        — the client renders `key` in TH/EN; only a manual --banner is literal text."""
         if self.banner:
-            return self.banner
+            return "", {}, self.banner
         if not self.last_rx_ms:
-            return ""                                      # never received anything: header already says so
+            return "", {}, ""                            # never received anything: header already says so
         stale_s = (now - self.last_rx_ms) / 1000
         if stale_s < STALE_BANNER_S:
-            return ""
+            return "", {}, ""
         last_local = time.strftime("%d/%m %H:%M", time.localtime(self.last_rx_ms / 1000))
-        mins = int(stale_s // 60)
-        when = f"{mins} นาที" if mins < 60 else f"{mins / 60:.1f} ชั่วโมง"
-        return (f"ไม่ได้ข้อมูลใหม่มาราว {when} (รับล่าสุด {last_local}) — "
-                "ตรวจ gateway / เครือข่าย / NETPIE; พัดลมยังใช้กฎสำรอง 55/45 ที่ gateway ได้")
+        return "stale", {"mins": int(stale_s // 60), "last": last_local}, ""
 
     def snapshot(self, range_min=360):
         now = int(time.time() * 1000)
@@ -135,9 +133,11 @@ class Dashboard:
             grx = gw.get("rx_ms")
             gw["online"] = bool(grx and now - grx < ONLINE_S * 1000)
             extra = sorted(n for n in self.latest if n not in self.boxes and n != "gateway")
+            bkey, bargs, btext = self._banner_spec(now)
             return {
                 "server_now_ms": now, "data_now_ms": self.data_now, "range_min": range_min,
-                "banner": self._banner(now), "model": self.model_name, "last_rx_ms": self.last_rx_ms,
+                "banner": btext, "banner_key": bkey, "banner_args": bargs,
+                "model": self.model_name, "last_rx_ms": self.last_rx_ms,
                 "thresholds": {"fan_on": ON_THRESHOLD, "fan_off": OFF_THRESHOLD, "alert": RH_ALERT},
                 "boxes": boxes, "gateway": gw, "extra_nodes": extra,
                 "alerts": list(self.alerts)[:15], "events": list(self.events)[:15],
