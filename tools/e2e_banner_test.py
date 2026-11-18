@@ -5,7 +5,8 @@ Architecture under test: real service.py (dashboard + MQTT subscriber) vs local 
 fed by FakeGateway with ts = Pi_now + 49h (models the gateway clock skew seen on NETPIE).
 Checks:
   1. while data flows and gateway ts is 49h ahead: gateway online MUST be true (rx_ms wins)
-  2. after publishing stops: auto banner appears (STALE_BANNER_S patched to 90s), Thai text
+  2. after publishing stops: auto banner appears (STALE_BANNER_S patched to 90s) as i18n key+args
+     rendered client-side in TH or EN
   3. manual --banner still overrides
   4. frontend freshness rule sanity: server_now - last_rx_ms < 120000 -> False while stale
 """
@@ -83,8 +84,12 @@ try:
     print("phase-1 done; waiting 180s (banner threshold 60s, dot threshold 120s)...")
     time.sleep(180)
     st = api()
-    check("auto banner after outage", "ไม่ได้ข้อมูลใหม่" in st["banner"], st["banner"][:80])
-    check("banner cites receive time, not ts", "รับล่าสุด" in st["banner"], st["banner"][80:170])
+    ba = st.get("banner_args") or {}
+    check("auto banner after outage (i18n key)", st.get("banner_key") == "stale" and st.get("banner") == "",
+          str({"banner": st.get("banner"), "key": st.get("banner_key"), "args": ba})[:100])
+    last_local = time.strftime("%d/%m %H:%M", time.localtime(st["last_rx_ms"] / 1000))
+    check("banner args cite Pi receive time, not ts", ba.get("last") == last_local and ba.get("mins", 0) >= 1,
+          f"args={ba}, expected last={last_local}")
     stale_s = (st["server_now_ms"] - st["last_rx_ms"]) / 1000
     check("frontend stale rule (server_now-last_rx<120s is False)", not (stale_s < 120), f"stale {stale_s:.0f}s")
     check("green dot would be off", (st["server_now_ms"] - max(
@@ -96,6 +101,9 @@ try:
     # .banner[hidden]{display:none} rule exists -> empty warning bar bug
     html = open(os.path.join(REPO, "ai/web/index.html"), encoding="utf-8").read()
     check("empty banner cannot render (CSS [hidden] rule present)", ".banner[hidden] { display: none; }" in html)
+    check("banner.stale translated in both dictionaries", html.count('"banner.stale"') == 2)
+    check("no hardcoded Thai left in JS render code", not any(
+        __import__("re").search(r"[\u0E00-\u0E7F]", l) for l in html.splitlines()[300:] ))
 finally:
     pub.loop_stop(); pub.disconnect()
     svc.terminate(); svc.wait(timeout=10)

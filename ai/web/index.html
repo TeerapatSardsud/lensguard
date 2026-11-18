@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LensGuard Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%231877f2'/%3E%3Ccircle cx='12' cy='13' r='4' fill='none' stroke='white' stroke-width='2'/%3E%3Cpath d='M6 8h2l1.5-2.5h5L16 8h2' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Noto+Sans+Thai:wght@400;500;600&display=swap">
 <style>
@@ -124,7 +125,7 @@ section > .sec { display: flex; align-items: baseline; justify-content: space-be
 .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); margin-bottom: 4px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .chart { width: 100%; display: block; margin-top: 6px; touch-action: pan-y; }
-.chart text { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; font-family: var(--text); }
+.chart text { font-size: 11px; fill: var(--ink-2); font-variant-numeric: tabular-nums; font-family: var(--text); }
 .chart .end { fill: var(--ink); font-size: 12px; font-weight: 600; }
 .chart .thr { fill: var(--ink-2); font-size: 11px; }
 .tip { position: absolute; pointer-events: none; background: var(--surface); box-shadow: 0 6px 24px rgba(0,0,0,.18); border: 1px solid var(--line);
@@ -159,45 +160,46 @@ th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background
     <div class="logo" aria-hidden="true">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="5"/><path d="M4 8h3l2-3h6l2 3h3v12H4z"/></svg>
     </div>
-    <div><h1>LensGuard</h1><p>Smart Dry Cabinet · TuaKorm</p></div>
+    <div><h1>LensGuard</h1><p><span data-i18n="brand.sub">ตู้ควบคุมความชื้นอัจฉริยะ</span> · TuaKorm</p></div>
   </div>
-  <span class="pill" id="conn"><span class="dot"></span><span>กำลังเชื่อมต่อ…</span></span>
-  <button class="pill btn" id="theme" type="button" aria-label="สลับ theme"><span class="tl">Theme: </span><span id="themeVal">Auto</span></button>
+  <span class="pill" id="conn"><span class="dot"></span><span data-i18n="conn.init">กำลังเชื่อมต่อ…</span></span>
+  <button class="pill btn" id="langBtn" type="button" data-i18n-aria="lang.aria" aria-label="สลับภาษา TH/EN"><span id="langVal">TH</span></button>
+  <button class="pill btn" id="theme" type="button" data-i18n-aria="theme.aria" aria-label="สลับ theme"><span class="tl">Theme: </span><span id="themeVal">Auto</span></button>
 </div></div>
 
 <div class="wrap">
-  <div class="banner" id="banner" hidden></div>
+  <div class="banner" id="banner" role="alert" hidden></div>
   <main id="main">
     <section aria-labelledby="ovTitle">
-      <div class="sec"><h2 id="ovTitle">Overview</h2><span class="hint">ค่าล่าสุดจากกล่องทั้งสองใบและ gateway</span></div>
+      <div class="sec"><h2 id="ovTitle" data-i18n="ov.title">ภาพรวม</h2><span class="hint" data-i18n="ov.hint">ค่าล่าสุดจากกล่องทั้งสองใบและ gateway</span></div>
       <div class="overview" id="cards"></div>
     </section>
 
     <section class="card chart-card" aria-labelledby="chartTitle">
       <div class="sec">
-        <h2 id="chartTitle">Humidity <span class="hint">%RH</span></h2>
-        <div class="toolbar" role="toolbar" aria-label="ช่วงเวลา">
+        <h2 id="chartTitle"><span data-i18n="chart.title">ความชื้นสัมพัทธ์</span> <span class="hint">%RH</span></h2>
+        <div class="toolbar" role="toolbar" data-i18n-aria="range.aria" aria-label="ช่วงเวลา">
           <div class="seg" id="range">
-            <button type="button" data-min="60">1 ชม.</button>
-            <button type="button" data-min="360">6 ชม.</button>
-            <button type="button" data-min="1440">24 ชม.</button>
+            <button type="button" data-min="60" data-i18n="r.1h">1 ชม.</button>
+            <button type="button" data-min="360" data-i18n="r.6h">6 ชม.</button>
+            <button type="button" data-min="1440" data-i18n="r.24h">24 ชม.</button>
           </div>
-          <button class="tbtn" id="tableBtn" type="button" aria-pressed="false">Table</button>
+          <button class="tbtn" id="tableBtn" type="button" aria-pressed="false" aria-controls="tableWrap" data-i18n="tbl.show">ตารางข้อมูล</button>
         </div>
       </div>
       <div class="legend" id="legend"></div>
-      <svg class="chart" id="chart" tabindex="0" role="img" aria-label="กราฟความชื้นย้อนหลัง ใช้ปุ่มลูกศรซ้ายขวาเพื่ออ่านค่า"></svg>
+      <svg class="chart" id="chart" tabindex="0" role="img" data-i18n-aria="chart.aria" aria-label="กราฟความชื้นย้อนหลัง ใช้ปุ่มลูกศรซ้ายขวาเพื่ออ่านค่า"></svg>
       <div class="tip" id="tip" role="status"></div>
       <div class="table-wrap" id="tableWrap" hidden></div>
     </section>
 
     <div class="grid2">
       <section class="card" aria-labelledby="alertTitle">
-        <div class="card-head"><h3 id="alertTitle">Alerts</h3><span class="status">ส่งเข้า Telegram ด้วย</span></div>
+        <div class="card-head"><h3 id="alertTitle" data-i18n="alerts.title">การแจ้งเตือน</h3><span class="status" data-i18n="alerts.sub">ส่งเข้า Telegram ด้วย</span></div>
         <ul class="list" id="alerts"></ul>
       </section>
       <section class="card" aria-labelledby="evTitle">
-        <div class="card-head"><h3 id="evTitle">Events</h3><span class="status">Fan / Gateway</span></div>
+        <div class="card-head"><h3 id="evTitle" data-i18n="events.title">เหตุการณ์</h3><span class="status" data-i18n="events.sub">พัดลม / เกตเวย์</span></div>
         <ul class="list" id="events"></ul>
       </section>
     </div>
@@ -207,13 +209,121 @@ th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background
 
 <script>
 "use strict";
-const BOXES = [["box_A", "Box A", "--s1"], ["box_B", "Box B", "--s2"]];
+const BOXES = [["box_A", "--s1"], ["box_B", "--s2"]];
+const boxLabel = (id) => t("box.label", { n: String(id).slice(-1) });
 const $ = (id) => document.getElementById(id);
 const store = {
   get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
 let state = null, range = Number(store.get("lg.range", "360")), showTable = false, cursor = null;
+
+// ---------- i18n (TH default, EN switch; choice persists in localStorage) ----------
+const I18N = {
+  th: {
+    "lang.aria": "เปลี่ยนเป็นภาษาอังกฤษ", "theme.aria": "เปลี่ยนธีม", "theme.label": "ธีม: ",
+    "theme.auto": "อัตโนมัติ", "theme.light": "สว่าง", "theme.dark": "มืด",
+    "conn.init": "กำลังเชื่อมต่อ…", "conn.waiting": "รอข้อมูลจากเกตเวย์", "conn.err": "เชื่อมต่อเซิร์ฟเวอร์ AI ไม่ได้",
+    "conn.last": "ข้อมูลล่าสุด {ago}",
+    "ov.title": "ภาพรวม", "ov.hint": "ค่าล่าสุดจากกล่องทั้งสองใบและเกตเวย์", "range.aria": "ช่วงเวลา",
+    "chart.title": "ความชื้นสัมพัทธ์", "alerts.title": "การแจ้งเตือน",
+    "events.title": "เหตุการณ์", "events.sub": "พัดลม / เกตเวย์",
+    "r.1h": "1 ชม.", "r.6h": "6 ชม.", "r.24h": "24 ชม.",
+    "chart.aria": "กราฟความชื้นย้อนหลัง ใช้ปุ่มลูกศรซ้ายขวาเพื่ออ่านค่า",
+    "alerts.sub": "ส่งเข้า Telegram ด้วย",
+    "ago.s": "{n} วินาทีที่แล้ว", "ago.m": "{n} นาทีที่แล้ว", "ago.h": "{n} ชม.ที่แล้ว", "ago.d": "{n} วันที่แล้ว",
+    "dur.lt1": "ไม่ถึงนาที", "dur.m": "{m} นาที", "dur.h": "{h} ชม. {m} นาที",
+    "status.online": "ออนไลน์", "status.offline": "ออฟไลน์", "status.last_known": "ค่าล่าสุด {ago}",
+    "on": "เปิด", "off": "ปิด",
+    "rh.none": "ไม่มีข้อมูล", "rh.mold": "ชื้นเกิน เสี่ยงเชื้อรา", "rh.fan": "ความชื้นถึงเกณฑ์เปิดพัดลม",
+    "rh.watch": "ความชื้นเริ่มสูง ควรเฝ้าดู", "rh.good": "ความชื้นอยู่ในเกณฑ์ดี", "rh.offline": "ไม่ได้รับข้อมูล",
+    "why.ai": "คำสั่งจาก AI", "why.fallback": "กฎสำรองของเกตเวย์", "why.timeout": "ครบ 30 นาที พัดลมหยุดพัก",
+    "why.no_data": "ไม่มีข้อมูลจากกล่อง", "why.ota": "กำลังอัปเดตเฟิร์มแวร์",
+    "door.open": "เปิด", "door.closed": "ปิด",
+    "stat.temp": "อุณหภูมิ", "stat.door": "ฝากล่อง", "stat.fan": "พัดลม",
+    "ai.pred": "AI คาดการณ์อีก 10 นาที", "ai.pred_stale": "AI คาดการณ์ล่าสุด (ข้อมูลเก่า)", "ai.warming": "ยังคาดการณ์ไม่ได้ ต้องมีข้อมูลอย่างน้อย 16 นาที",
+    "ai.fanwhy": "พัดลม{v} เพราะ",
+    "sensor.label": "เซ็นเซอร์", "sensor.bad": "อ่านค่าไม่ได้",
+    "brand.sub": "ตู้ควบคุมความชื้นอัจฉริยะ",
+    "box.label": "กล่อง {n}", "gw.title": "เกตเวย์", "gw.last_known": "ออฟไลน์ · ค่าล่าสุด {ago}",
+    "gw.ambient": "อุณหภูมิภายนอก", "gw.exc": "ดีมาก", "gw.good": "ดี", "gw.fair": "พอใช้", "gw.weak": "อ่อน",
+    "gw.uptime": "เวลาทำงานต่อเนื่อง", "gw.buffer": "ข้อมูลรอส่ง", "gw.items": "{n} รายการ",
+    "gw.rx": "แพ็กเก็ตที่รับ (ซ้ำ)", "gw.model": "โมเดล AI",
+    "gw.nomodel": "ไม่มีโมเดล ใช้กฎสำรอง", "gw.nodes": "โหนดอื่นที่พบ",
+    "chart.empty": "ยังไม่มีข้อมูลในช่วงเวลานี้",
+    "thr.alert": "แจ้งเตือน", "thr.fan_on": "พัดลมเปิด", "thr.fan_off": "พัดลมปิด",
+    "tbl.show": "ตารางข้อมูล",
+    "tbl.caption": "ค่าความชื้นรายนาที รายการล่าสุดอยู่บนสุด", "tbl.time": "เวลา", "tbl.hide": "ซ่อนตาราง",
+    "alerts.empty": "ยังไม่มีการแจ้งเตือน", "events.empty": "ยังไม่มีเหตุการณ์",
+    "ev.fan": "{box}: พัดลม{v} · {why}",
+    "ev.silica": "{box}: ซิลิกาเจลน่าจะอิ่มตัว (เปิดพัดลม 30 นาที ความชื้น{tail}%)",
+    "ev.silica_a": "ลดลงเพียง {v}", "ev.silica_b": "กลับเพิ่มขึ้น {v}", "ev.boot": "เกตเวย์เริ่มทำงาน ({d})",
+    "legend.thr": "เส้นประ = เกณฑ์พัดลมและการแจ้งเตือน",
+    "foot": "อัปเดตทุก 5 วินาที · พัดลมเปิดที่ {on}% · ปิดที่ {off}% · แจ้งเตือนที่ {al}% · ข้อมูลดิบจัดเก็บบน NETPIE",
+    "banner.stale": "ไม่ได้รับข้อมูลใหม่มา {dur} (รับล่าสุด {last}) — ตรวจสอบเกตเวย์ เครือข่าย และ NETPIE โดยเกตเวย์ยังใช้กฎสำรอง 55/45 ควบคุมพัดลมได้",
+  },
+  en: {
+    "lang.aria": "Switch to Thai", "theme.aria": "Switch theme", "theme.label": "Theme: ",
+    "theme.auto": "Auto", "theme.light": "Light", "theme.dark": "Dark",
+    "conn.init": "Connecting…", "conn.waiting": "Waiting for gateway data", "conn.err": "Cannot reach the AI server",
+    "conn.last": "Last data {ago}",
+    "ov.title": "Overview", "ov.hint": "Latest readings from both boxes and the gateway", "range.aria": "Time range",
+    "chart.title": "Relative humidity", "alerts.title": "Alerts",
+    "events.title": "Events", "events.sub": "Fan / Gateway",
+    "r.1h": "1 h", "r.6h": "6 h", "r.24h": "24 h",
+    "chart.aria": "Humidity history chart; use left/right arrow keys to read values",
+    "alerts.sub": "Also sent to Telegram",
+    "ago.s": "{n}s ago", "ago.m": "{n} min ago", "ago.h": "{n} h ago", "ago.d": "{n} d ago",
+    "dur.lt1": "<1 min", "dur.m": "{m} min", "dur.h": "{h}h {m}m",
+    "status.online": "Online", "status.offline": "Offline", "status.last_known": "Last known {ago}",
+    "on": "ON", "off": "OFF",
+    "rh.none": "No data", "rh.mold": "Too humid — mold risk", "rh.fan": "Humidity above fan-on threshold",
+    "rh.watch": "Humidity rising — monitor", "rh.good": "Humidity within target range", "rh.offline": "No recent data",
+    "why.ai": "AI command", "why.fallback": "Gateway fallback rule", "why.timeout": "30-min limit — fan resting",
+    "why.no_data": "No data from the box", "why.ota": "Firmware update in progress",
+    "door.open": "Open", "door.closed": "Closed",
+    "stat.temp": "Temperature", "stat.door": "Door", "stat.fan": "Fan",
+    "ai.pred": "AI forecast (next 10 min)", "ai.pred_stale": "Last AI forecast (based on older data)",
+    "ai.warming": "Forecast unavailable — needs at least 16 min of data",
+    "ai.fanwhy": "Why the fan is {v}",
+    "sensor.label": "Sensor", "sensor.bad": "Sensor read failed",
+    "brand.sub": "Smart Dry Cabinet",
+    "box.label": "Box {n}", "gw.title": "Gateway", "gw.last_known": "Offline · last known {ago}",
+    "gw.ambient": "Ambient temperature", "gw.exc": "Excellent", "gw.good": "Good", "gw.fair": "Fair", "gw.weak": "Weak",
+    "gw.uptime": "Uptime", "gw.buffer": "Queued readings", "gw.items": "{n} pending",
+    "gw.rx": "Packets received (duplicates)", "gw.model": "AI model",
+    "gw.nomodel": "No model — using fallback rule", "gw.nodes": "Other nodes detected",
+    "chart.empty": "No data in this range",
+    "thr.alert": "Alert", "thr.fan_on": "Fan ON", "thr.fan_off": "Fan OFF",
+    "tbl.show": "Table",
+    "tbl.caption": "Minute-by-minute humidity, newest first", "tbl.time": "Time", "tbl.hide": "Hide table",
+    "alerts.empty": "No alerts yet", "events.empty": "No events yet",
+    "ev.fan": "{box}: fan {v} · {why}",
+    "ev.silica": "{box}: silica gel likely saturated (after 30 min of fan, RH {tail}%)",
+    "ev.silica_a": "dropped only {v}", "ev.silica_b": "rose by {v}", "ev.boot": "Gateway started ({d})",
+    "legend.thr": "Dashed lines = fan & alert thresholds",
+    "foot": "Updates every 5s · Fan ON at {on}% · OFF at {off}% · Alert at {al}% · Raw data stored on NETPIE",
+    "banner.stale": "No new data for {dur} (last received {last}) — check the gateway, network, and NETPIE. The gateway can still control the fans with its 55/45 fallback rule.",
+  },
+};
+let lang = ["th", "en"].includes(store.get("lg.lang", "th")) ? store.get("lg.lang", "th") : "th";
+function t(key, subs) {
+  let s = I18N[lang][key] ?? I18N.th[key] ?? key;
+  if (subs) for (const [k, v] of Object.entries(subs)) s = s.replaceAll("{" + k + "}", v);
+  return s;
+}
+const FAN_WHY_KEY = { ai: "why.ai", fallback: "why.fallback", timeout: "why.timeout", no_data: "why.no_data", ota: "why.ota" };
+const why = (d) => (FAN_WHY_KEY[d] ? t(FAN_WHY_KEY[d]) : d);
+function applyLang() {
+  document.documentElement.lang = lang;
+  for (const n of document.querySelectorAll("[data-i18n]")) n.textContent = t(n.dataset.i18n);
+  for (const n of document.querySelectorAll("[data-i18n-aria]")) n.setAttribute("aria-label", t(n.dataset.i18nAria));
+  $("langVal").textContent = lang === "th" ? "TH" : "EN";
+  document.querySelector(".tl").textContent = t("theme.label");
+  $("themeVal").textContent = t("theme." + (document.documentElement.dataset.theme || "auto"));
+  $("tableBtn").textContent = showTable ? t("tbl.hide") : t("tbl.show");
+  if (state) render(state);
+}
 
 // ---------- small DOM helpers (data always goes in via textContent) ----------
 function el(tag, attrs = {}, ...kids) {
@@ -248,29 +358,30 @@ function icon(name) {
 }
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const fmt1 = (v) => (v == null ? "–" : Number(v).toFixed(1));
-const hhmm = (t) => new Date(t).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false });
+const PRED_HORIZON_MS = 10 * 60_000;   // keep in sync with ai/features.py HORIZON
+const hhmm = (t) => new Date(t).toLocaleTimeString(lang === "th" ? "th-TH" : "en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
 function ago(ms) {
   if (ms == null) return "–";
   const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return s + " วินาทีที่แล้ว";
-  if (s < 3600) return Math.round(s / 60) + " นาทีที่แล้ว";
-  if (s < 86400) return Math.round(s / 3600) + " ชม.ที่แล้ว";
-  return Math.round(s / 86400) + " วันที่แล้ว";
+  if (s < 60) return t("ago.s", { n: s });
+  if (s < 3600) return t("ago.m", { n: Math.round(s / 60) });
+  if (s < 86400) return t("ago.h", { n: Math.round(s / 3600) });
+  return t("ago.d", { n: Math.round(s / 86400) });
 }
+const onOff = (v) => t(Number(v) ? "on" : "off");
 function dur(ms) {
   const m = Math.round(ms / 60000);
-  return m < 1 ? "ไม่ถึงนาที" : m < 60 ? m + " นาที" : Math.floor(m / 60) + " ชม. " + (m % 60) + " นาที";
+  return m < 1 ? t("dur.lt1") : m < 60 ? t("dur.m", { m }) : t("dur.h", { h: Math.floor(m / 60), m: m % 60 });
 }
 
 // ---------- status of one box (status colours always come with icon + words) ----------
 function rhStatus(rh, th) {
-  if (rh == null) return ["", "x", "ไม่มีข้อมูล"];
-  if (rh >= th.alert) return ["critical", "warn", "ชื้นเกิน เสี่ยงเชื้อรา"];
-  if (rh >= th.fan_on) return ["serious", "warn", "ชื้น Fan ควรทำงาน"];
-  if (rh > th.fan_off + 5) return ["warning", "warn", "เริ่มชื้น เฝ้าดู"];
-  return ["good", "ok", "แห้งกำลังดี"];
+  if (rh == null) return ["", "x", t("rh.none")];
+  if (rh >= th.alert) return ["critical", "warn", t("rh.mold")];
+  if (rh >= th.fan_on) return ["serious", "warn", t("rh.fan")];
+  if (rh > th.fan_off + 5) return ["warning", "warn", t("rh.watch")];
+  return ["good", "ok", t("rh.good")];
 }
-const FAN_WHY = { ai: "AI สั่ง", fallback: "กฎสำรองของ gateway", timeout: "ครบ 30 นาที พักเครื่อง", no_data: "ไม่มีข้อมูลจากกล่อง", ota: "กำลัง update firmware" };
 
 function stat(label, value, cls) {
   const v = el("span", { class: "v" });
@@ -278,14 +389,15 @@ function stat(label, value, cls) {
   return el("div", { class: "stat" + (cls ? " " + cls : "") }, el("span", { class: "l" }, label), v);
 }
 
-function boxCard([id, name, color], d, st) {
+function boxCard([id, color], d, st) {
+  const name = boxLabel(id);
   const card = el("article", { class: "card" + (d.online ? "" : " off"), "aria-label": name });
   card.append(el("div", { class: "card-head" },
     el("h3", {}, el("span", { class: "key", style: `background:var(${color})` }), name),
     el("span", { class: "status" }, el("span", { class: "dot " + (d.online ? "on" : "off") }),
-      d.online ? "Online" : "Offline · " + ago(d.last_rx_ms ? st.server_now_ms - d.last_rx_ms : null))));
+      d.online ? t("status.online") : t("status.last_known", { ago: ago(d.last_rx_ms ? st.server_now_ms - d.last_rx_ms : null) }))));
 
-  const [lvl, ico, txt] = d.online ? rhStatus(d.rh, st.thresholds) : ["critical", "x", "ไม่ได้รับข้อมูล"];
+  const [lvl, ico, txt] = d.online ? rhStatus(d.rh, st.thresholds) : ["critical", "x", t("rh.offline")];
   card.append(el("div", { class: "hero" },
     el("div", {}, el("span", { class: "num" }, d.rh == null ? "–" : Math.round(d.rh)), el("span", { class: "unit" }, "%RH")),
     el("span", { class: "state " + lvl }, icon(ico), txt)));
@@ -295,40 +407,49 @@ function boxCard([id, name, color], d, st) {
   const doorIco = icon("door"); doorIco.style.color = d.door ? "var(--critical)" : "var(--muted)";
   const tIco = icon("temp"); tIco.style.color = "var(--muted)";
   card.append(el("div", { class: "stats" },
-    stat("Temp", [tIco, d.temp == null ? "–" : fmt1(d.temp) + " °C"]),
-    stat("Door", [doorIco, d.door ? "เปิด" + (d.door_since ? " " + dur(st.data_now_ms - d.door_since) : "") : "ปิด"], d.door ? "alert" : ""),
-    stat("Fan", [fanIco, d.fan ? "ON" : "OFF"])));
+    stat(t("stat.temp"), [tIco, d.temp == null ? "–" : fmt1(d.temp) + " °C"]),
+    stat(t("stat.door"), [doorIco, d.door ? t("door.open") + (d.door_since ? " " + dur(st.data_now_ms - d.door_since) : "") : t("door.closed")], d.door ? "alert" : ""),
+    stat(t("stat.fan"), [fanIco, onOff(d.fan)])));
 
   const ai = el("div", { class: "ai" });
   if (d.pred) {
     const diff = d.pred.pred - (d.rh ?? d.pred.pred);
     const arrow = diff > 0.5 ? "↗ " : diff < -0.5 ? "↘ " : "→ ";
-    ai.append(el("div", { class: "row" }, el("span", {}, "AI forecast อีก 10 นาที"), el("b", {}, arrow + fmt1(d.pred.pred) + " %")));
+    // a forecast older than its own 10-min horizon (ai/features.py HORIZON) has already expired,
+    // so calling it "next 10 min" would be a lie
+    const predFresh = st.server_now_ms - (d.pred.t || 0) < PRED_HORIZON_MS;
+    ai.append(el("div", { class: "row" }, el("span", {}, t(predFresh ? "ai.pred" : "ai.pred_stale")),
+      el("b", {}, arrow + fmt1(d.pred.pred) + " %")));
   } else {
-    ai.append(el("div", { class: "row" }, el("span", {}, "AI forecast อีก 10 นาที"), el("b", { class: "why" }, "กำลังเก็บข้อมูล (16 นาที)")));
+    ai.append(el("div", { class: "row" }, el("span", {}, t("ai.pred")), el("b", { class: "why" }, t("ai.warming"))));
   }
+  // explain the CURRENT fan state only: the newest fan event can be older than the state it caused
   const fanEv = (st.events || []).find((e) => e.event === "fan" && e.box === id);
-  if (fanEv) ai.append(el("div", { class: "row" }, el("span", {}, "Fan " + (Number(fanEv.value) ? "ON" : "OFF") + " เพราะ"), el("b", { class: "why" }, FAN_WHY[fanEv.detail] || fanEv.detail)));
-  if (d.valid === 0) ai.append(el("div", { class: "row" }, el("span", {}, "Sensor"), el("b", { style: "color:var(--critical)" }, "อ่านค่าไม่ได้")));
+  if (fanEv && Number(fanEv.value) === Number(d.fan)) {
+    ai.append(el("div", { class: "row" }, el("span", {}, t("ai.fanwhy", { v: onOff(d.fan) })), el("b", { class: "why" }, why(fanEv.detail))));
+  }
+  if (d.valid === 0) ai.append(el("div", { class: "row" }, el("span", {}, t("sensor.label")), el("b", { style: "color:var(--critical)" }, t("sensor.bad"))));
   card.append(ai);
   return card;
 }
 
 function systemCard(st) {
   const g = st.gateway || {};
-  const card = el("article", { class: "card gw" + (g.online ? "" : " off"), "aria-label": "Gateway" });
-  card.append(el("div", { class: "card-head" }, el("h3", {}, "Gateway"),
-    el("span", { class: "status" }, el("span", { class: "dot " + (g.online ? "on" : "off") }), g.online ? "Online" : "Offline")));
-  const rssi = g.rssi, q = !rssi ? "–" : rssi > -60 ? "ดีมาก" : rssi > -70 ? "ดี" : rssi > -80 ? "พอใช้" : "อ่อน";
+  const card = el("article", { class: "card gw" + (g.online ? "" : " off"), "aria-label": t("gw.title") });
+  card.append(el("div", { class: "card-head" }, el("h3", {}, t("gw.title")),
+    el("span", { class: "status" }, el("span", { class: "dot " + (g.online ? "on" : "off") }),
+      g.online ? t("status.online")
+               : t("gw.last_known", { ago: ago(g.rx_ms ? st.server_now_ms - g.rx_ms : null) }))));
+  const rssi = g.rssi, q = !rssi ? "–" : rssi > -60 ? t("gw.exc") : rssi > -70 ? t("gw.good") : rssi > -80 ? t("gw.fair") : t("gw.weak");
   const rows = [
-    ["Temp นอกกล่อง", g.temp_out == null ? "–" : fmt1(g.temp_out) + " °C"],
+    [t("gw.ambient"), g.temp_out == null ? "–" : fmt1(g.temp_out) + " °C"],
     ["Wi-Fi", rssi ? `${q} (${rssi} dBm)` : "–"],
-    ["Uptime", g.uptime_s == null ? "–" : dur(g.uptime_s * 1000)],
-    ["Buffer รอส่ง", g.buffered == null ? "–" : g.buffered + " รายการ"],
-    ["Packets รับ (ซ้ำ)", g.rx_ok == null ? "–" : `${g.rx_ok} (${g.rx_dup || 0})`],
-    ["AI model", st.model || "ไม่มี ใช้กฎสำรอง"],
+    [t("gw.uptime"), g.uptime_s == null ? "–" : dur(g.uptime_s * 1000)],
+    [t("gw.buffer"), g.buffered == null ? "–" : t("gw.items", { n: g.buffered })],
+    [t("gw.rx"), g.rx_ok == null ? "–" : `${g.rx_ok} (${g.rx_dup || 0})`],
+    [t("gw.model"), st.model || t("gw.nomodel")],
   ];
-  if (st.extra_nodes && st.extra_nodes.length) rows.push(["Node อื่นที่พบ", st.extra_nodes.join(", ")]);
+  if (st.extra_nodes && st.extra_nodes.length) rows.push([t("gw.nodes"), st.extra_nodes.join(", ")]);
   const sys = el("div", { class: "rows" });
   for (const [k, v] of rows) sys.append(el("div", { class: "row" }, el("span", {}, k), el("b", {}, v)));
   card.append(sys);
@@ -343,11 +464,11 @@ function drawChart(st) {
   const m = { l: 48, r: W < 480 ? 56 : 74, t: 10 }, stripTop = m.t + plotH + 12, rowH = 10, rowGap = 6;
   const H = stripTop + 2 * rowH + rowGap + 26;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("height", H);
-  const series = BOXES.map(([id, name, color]) => ({ id, name, color: css(color), pts: st.boxes[id].series }));
+  const series = BOXES.map(([id, color]) => ({ id, name: boxLabel(id), color: css(color), pts: st.boxes[id].series }));
   const all = series.flatMap((x) => x.pts);
   if (!all.length) {
     svg.setAttribute("height", 140); svg.setAttribute("viewBox", `0 0 ${W} 140`);
-    svg.append(s("text", { x: W / 2, y: 70, "text-anchor": "middle", style: "font-size:14px" }, "ยังไม่มีข้อมูลในช่วงเวลานี้"));
+    svg.append(s("text", { x: W / 2, y: 70, "text-anchor": "middle", style: "font-size:14px" }, t("chart.empty")));
     geom = null; return;
   }
   const x1 = st.data_now_ms, x0 = x1 - st.range_min * 60000;
@@ -362,7 +483,7 @@ function drawChart(st) {
     svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--grid"), "stroke-width": 1 }));
     svg.append(s("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end" }, v + "%"));
   }
-  for (const [v, label] of [[th.alert, "Alert"], [th.fan_on, "Fan ON"], [th.fan_off, "Fan OFF"]]) {
+  for (const [v, label] of [[th.alert, t("thr.alert")], [th.fan_on, t("thr.fan_on")], [th.fan_off, t("thr.fan_off")]]) {
     if (v < lo || v > hi) continue;
     svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--axis"), "stroke-width": 1, "stroke-dasharray": "4 4" }));
     svg.append(s("text", { class: "thr", x: m.l + 6, y: Y(v) - 4 }, `${v}% ${label}`));
@@ -394,7 +515,7 @@ function drawChart(st) {
   }
   series.forEach((se, i) => {
     const y = stripTop + i * (rowH + rowGap);
-    svg.append(s("text", { x: m.l - 8, y: y + rowH - 1, "text-anchor": "end" }, "Fan " + se.name.slice(-1)));
+    svg.append(s("text", { x: m.l - 8, y: y + rowH - 1, "text-anchor": "end" }, t("stat.fan") + " " + se.name.slice(-1)));
     svg.append(s("rect", { x: m.l, y, width: W - m.l - m.r, height: rowH, rx: 3, fill: css("--surface-2") }));
     let start = null;
     const flush = (end) => { if (start != null) svg.append(s("rect", { x: X(start), y, width: Math.max(2, X(end) - X(start)), height: rowH, rx: 3, fill: se.color, opacity: 0.85 })); start = null; };
@@ -425,17 +546,17 @@ function nearest(pts, t) {
   const p = Math.abs(pts[lo][0] - t) <= Math.abs(pts[hi][0] - t) ? pts[lo] : pts[hi];
   return Math.abs(p[0] - t) <= 120000 ? p : null;
 }
-function showAt(t) {
+function showAt(cursorMs) {
   if (!geom) return;
-  t = Math.max(geom.x0, Math.min(geom.x1, t)); cursor = t;
-  const tip = $("tip"); tip.replaceChildren(el("div", { class: "t" }, hhmm(t)));
-  geom.cross.setAttribute("x1", geom.X(t)); geom.cross.setAttribute("x2", geom.X(t)); geom.cross.setAttribute("visibility", "visible");
+  const ts = Math.max(geom.x0, Math.min(geom.x1, cursorMs)); cursor = ts;
+  const tip = $("tip"); tip.replaceChildren(el("div", { class: "t" }, hhmm(ts)));
+  geom.cross.setAttribute("x1", geom.X(ts)); geom.cross.setAttribute("x2", geom.X(ts)); geom.cross.setAttribute("visibility", "visible");
   geom.series.forEach((se, i) => {
-    const p = nearest(se.pts, t), dot = geom.dots[i];
+    const p = nearest(se.pts, ts), dot = geom.dots[i];
     if (p) { dot.setAttribute("cx", geom.X(p[0])); dot.setAttribute("cy", geom.Y(p[1])); dot.setAttribute("visibility", "visible"); }
     else dot.setAttribute("visibility", "hidden");
     tip.append(el("div", { class: "r" }, el("span", { class: "k", style: `background:${se.color}` }),
-      el("b", {}, p ? fmt1(p[1]) + "%" : "–"), el("span", {}, se.name + (p ? (p[2] ? " · Fan ON" : " · Fan OFF") : ""))));
+      el("b", {}, p ? fmt1(p[1]) + "%" : "–"), el("span", {}, se.name + (p ? " · " + t("stat.fan") + " " + onOff(p[2]) : ""))));
   });
   const svgR = $("chart").getBoundingClientRect(), cardR = $("chart").parentElement.getBoundingClientRect();
   const px = svgR.left - cardR.left + (geom.X(t) / geom.W) * svgR.width;
@@ -471,12 +592,12 @@ function drawTable(st) {
   for (const k of keys) {
     const r = rows.get(k);
     tb.append(el("tr", {}, el("td", {}, hhmm(k)), el("td", {}, fmt1(r[0])), el("td", {}, fmt1(r[1])),
-      el("td", {}, r[2] == null ? "–" : r[2] ? "ON" : "OFF"), el("td", {}, r[3] == null ? "–" : r[3] ? "ON" : "OFF")));
+      el("td", {}, r[2] == null ? "–" : onOff(r[2])), el("td", {}, r[3] == null ? "–" : onOff(r[3]))));
   }
-  const t = el("table", {}, el("caption", { class: "sr" }, "ค่าความชื้นรายนาที ล่าสุดอยู่บน"),
-    el("thead", {}, el("tr", {}, el("th", {}, "เวลา"), el("th", {}, "Box A (%RH)"), el("th", {}, "Box B (%RH)"),
-      el("th", {}, "Fan A"), el("th", {}, "Fan B"))), tb);
-  wrap.replaceChildren(t);
+  const tbl = el("table", {}, el("caption", { class: "sr" }, t("tbl.caption")),
+    el("thead", {}, el("tr", {}, el("th", {}, t("tbl.time")), el("th", {}, boxLabel("box_A") + " (%RH)"), el("th", {}, boxLabel("box_B") + " (%RH)"),
+      el("th", {}, t("stat.fan") + " A"), el("th", {}, t("stat.fan") + " B"))), tb);
+  wrap.replaceChildren(tbl);
 }
 
 // ---------- alerts + events ----------
@@ -484,7 +605,7 @@ const ALERT_ICON = { rh_high: ["critical", "warn"], door_open: ["warning", "door
   silica: ["serious", "salt"], reboot: ["warning", "reboot"], sensor_stuck: ["serious", "ice"] };
 function drawLists(st) {
   const ul = $("alerts"); ul.replaceChildren();
-  if (!st.alerts.length) ul.append(el("li", {}, el("span"), el("span", { class: "txt", style: "color:var(--muted)" }, "ยังไม่มีการแจ้งเตือน"), el("span")));
+  if (!st.alerts.length) ul.append(el("li", {}, el("span"), el("span", { class: "txt", style: "color:var(--muted)" }, t("alerts.empty")), el("span")));
   for (const a of st.alerts) {
     const [lvl, ico] = ALERT_ICON[a.kind] || ["", "bell"];
     const i = icon(ico); i.style.color = `var(--${lvl || "muted"})`;
@@ -493,16 +614,16 @@ function drawLists(st) {
   }
   const ev = $("events"); ev.replaceChildren();
   const list = (st.events || []).slice(0, 10);
-  if (!list.length) ev.append(el("li", {}, el("span"), el("span", { class: "txt", style: "color:var(--muted)" }, "ยังไม่มีเหตุการณ์"), el("span")));
+  if (!list.length) ev.append(el("li", {}, el("span"), el("span", { class: "txt", style: "color:var(--muted)" }, t("events.empty")), el("span")));
   for (const e of list) {
     let ico = "fan", text;
-    const box = e.box ? "Box " + e.box.slice(-1) : "";
-    if (e.event === "fan") text = `Fan ${box} ${Number(e.value) ? "ON" : "OFF"} · ${FAN_WHY[e.detail] || e.detail}`;
+    const box = e.box ? boxLabel(e.box) : "";
+    if (e.event === "fan") text = t("ev.fan", { box, v: onOff(e.value), why: why(e.detail) });
     else if (e.event === "silica") {
       ico = "salt"; const d = Number(e.value);
-      text = `${box}: silica gel น่าจะอิ่มตัว (fan 30 นาที ความชื้น${d >= 0 ? "ลดลงแค่ " + d.toFixed(1) : "กลับเพิ่มขึ้น " + (-d).toFixed(1)} %)`;
+      text = t("ev.silica", { box, tail: d >= 0 ? t("ev.silica_a", { v: d.toFixed(1) }) : t("ev.silica_b", { v: (-d).toFixed(1) }) });
     }
-    else if (e.event === "boot") { ico = "reboot"; text = `Gateway เริ่มทำงาน (${e.detail})`; }
+    else if (e.event === "boot") { ico = "reboot"; text = t("ev.boot", { d: e.detail }); }
     else text = e.event;
     const i = icon(ico); i.style.color = "var(--muted)";
     ev.append(el("li", {}, i, el("span", { class: "txt" }, text), el("span", { class: "when" }, e.ts ? hhmm(e.ts) : "")));
@@ -512,16 +633,17 @@ function drawLists(st) {
 // ---------- render + polling ----------
 function render(st) {
   $("cards").replaceChildren(...BOXES.map((b) => boxCard(b, st.boxes[b[0]], st)), systemCard(st));
-  $("legend").replaceChildren(...BOXES.map(([, name, color]) => el("span", {}, el("span", { class: "key", style: `background:var(${color})` }), name)),
-    el("span", {}, el("span", { class: "key", style: "background:var(--axis);height:2px;width:14px;border-radius:1px" }), "เส้นประ = เกณฑ์ fan และ alert"));
+  $("legend").replaceChildren(...BOXES.map(([id, color]) => el("span", {}, el("span", { class: "key", style: `background:var(${color})` }), boxLabel(id))),
+    el("span", {}, el("span", { class: "key", style: "background:var(--axis);height:2px;width:14px;border-radius:1px" }), t("legend.thr")));
   drawChart(st); drawTable(st); drawLists(st);
-  const b = $("banner"); b.hidden = !st.banner; b.replaceChildren(icon("warn"), st.banner || "");
+  const bargs = st.banner_args || {};
+  const btext = st.banner || (st.banner_key ? t("banner." + st.banner_key, { dur: dur((bargs.mins || 0) * 60000), last: bargs.last || "" }) : "");
+  const b = $("banner"); b.hidden = !btext; b.replaceChildren(icon("warn"), btext);
   b.firstChild.style.cssText = "width:18px;height:18px;flex:none;color:var(--warning)";
   const last = Math.max(0, ...Object.values(st.boxes).map((x) => x.last_rx_ms || 0), st.gateway.rx_ms || 0);
   const staleS = last ? (st.server_now_ms - last) / 1000 : Infinity;   // Pi receive time, not the device clock
-  setConn(staleS < 120, last ? "อัปเดต " + ago(st.server_now_ms - last) : "รอข้อมูลจาก gateway");
-  $("foot").textContent = "Refresh ทุก 5 วินาที · เกณฑ์: Fan ON " + st.thresholds.fan_on + " % · Fan OFF " + st.thresholds.fan_off +
-    " % · Alert " + st.thresholds.alert + " % · ข้อมูลดิบเก็บบน NETPIE";
+  setConn(staleS < 120, last ? t("conn.last", { ago: ago(st.server_now_ms - last) }) : t("conn.waiting"));
+  $("foot").textContent = t("foot", { on: st.thresholds.fan_on, off: st.thresholds.fan_off, al: st.thresholds.alert });
 }
 function setConn(ok, text) {
   const p = $("conn"); p.replaceChildren(el("span", { class: "dot " + (ok ? "live" : "dead") }), el("span", {}, text));
@@ -533,7 +655,7 @@ async function poll() {
     if (!r.ok) throw new Error(r.status);
     state = await r.json(); render(state);
   } catch {
-    setConn(false, "ขาดการเชื่อมต่อกับ AI service");
+    setConn(false, t("conn.err"));
   }
 }
 function setRange(min) {
@@ -544,12 +666,15 @@ function setRange(min) {
 $("range").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setRange(Number(b.dataset.min)); });
 $("tableBtn").addEventListener("click", () => {
   showTable = !showTable; $("tableBtn").setAttribute("aria-pressed", String(showTable));
-  $("tableBtn").textContent = showTable ? "ซ่อน table" : "Table"; if (state) drawTable(state);
+  $("tableBtn").textContent = showTable ? t("tbl.hide") : t("tbl.show"); if (state) drawTable(state);
 });
-const THEMES = ["auto", "light", "dark"], TNAME = { auto: "Auto", light: "Light", dark: "Dark" };
+$("langBtn").addEventListener("click", () => {
+  lang = lang === "th" ? "en" : "th"; store.set("lg.lang", lang); applyLang();
+});
+const THEMES = ["auto", "light", "dark"];
 function applyTheme(t) {
   if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t);
-  $("themeVal").textContent = TNAME[t]; store.set("lg.theme", t); if (state) render(state);
+  $("themeVal").textContent = I18N[lang]["theme." + t]; store.set("lg.theme", t); if (state) render(state);
 }
 $("theme").addEventListener("click", () => {
   const cur = store.get("lg.theme", "auto"); applyTheme(THEMES[(THEMES.indexOf(cur) + 1) % 3]);
@@ -558,6 +683,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => stat
 let resizeT; new ResizeObserver(() => { clearTimeout(resizeT); resizeT = setTimeout(() => state && drawChart(state), 120); }).observe($("chart"));
 const urlTheme = new URLSearchParams(location.search).get("theme");
 applyTheme(THEMES.includes(urlTheme) ? urlTheme : store.get("lg.theme", "auto"));
+applyLang();
 setRange([60, 360, 1440].includes(range) ? range : 360);
 setInterval(poll, 5000);
 </script>
