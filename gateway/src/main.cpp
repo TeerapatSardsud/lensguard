@@ -320,6 +320,7 @@ static void setupOta() {
 
 static void cloudTask(void *) {
   uint32_t lastWifiTry = 0, lastMqttTry = 0, wifiDownSince = 0, mqttDownSince = millis();
+  uint32_t lastNtpTry = 0;
   bool otaReady = false, timeConfigured = false;
   PubItem it;
   esp_task_wdt_add(nullptr);           // a TLS connect that hangs > WDT_TIMEOUT_S reboots the gateway
@@ -337,8 +338,16 @@ static void cloudTask(void *) {
     }
     if (wifiUp && !timeConfigured) {
       configTime(7 * 3600, 0, "pool.ntp.org", "time.navy.mi.th"); timeConfigured = true;
+      lastNtpTry = millis();
       int ch = WiFi.channel();
       Serial.printf("[wifi] %s channel=%d (nodes find it by scanning)\n", WiFi.localIP().toString().c_str(), ch);
+    }
+    // field lesson (Nov 17): one-shot SNTP can silently stop renewing -> clock free-runs (our board: ~15x fast)
+    // re-issue the sync every 15 min; esp_sntp restarts cleanly, and a healthy board just ignores the refresh
+    if (wifiUp && timeConfigured && millis() - lastNtpTry > NTP_RESYNC_MS) {
+      lastNtpTry = millis();
+      configTime(7 * 3600, 0, "pool.ntp.org", "time.navy.mi.th");
+      Serial.println("[time] periodic NTP re-sync issued");
     }
     if (wifiUp && !otaReady) { setupOta(); otaReady = true; }
     if (otaReady) ArduinoOTA.handle();
