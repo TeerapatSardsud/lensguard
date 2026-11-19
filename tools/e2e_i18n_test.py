@@ -23,6 +23,7 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -32,21 +33,33 @@ CHROME_HINT = os.environ.get("LENSGUARD_CHROME",
 
 THAI = re.compile(r"[\u0E00-\u0E7F]")
 STALE_MIN = 14
+HIST_MIN = 26 * 60          # fixture history, so 1 h / 6 h / 24 h are all distinct
 
 
-def fixture_state():
-    """Two boxes with history, one offline, a stale banner key, one alert, one fan event."""
+def fixture_state(range_min=360):
+    """Two boxes with history, one offline, a stale banner key, one alert, one fan event.
+
+    Mirrors ai/dashboard.py's range filter (lo = data_now//60_000 - range_min, keep minutes >= lo) because
+    a fixture that ignores ?range= makes the 1h/6h/24h buttons look dead when they are not.
+    """
     now = int(time.time() * 1000)
     last_rx = now - STALE_MIN * 60_000 - 30_000
+    anchor = last_rx // 60_000
+    lo = anchor - range_min
+
+    def series(rh):
+        return [[m * 60_000, rh + ((anchor - m) % 5) - 2, 0]
+                for m in range(anchor - HIST_MIN + 1, anchor + 1) if m >= lo]
+
     box = lambda rh, temp: {                                  # noqa: E731
         "rh": rh, "temp": temp, "door": 0, "valid": 1, "fan": 0,
         "last_rx_ms": last_rx, "online": False,
         "door_since": None, "pred": {"pred": rh + 1.2, "fan_cmd": 0, "t": last_rx},
-        "series": [[last_rx - i * 60_000, rh + (i % 5) - 2, 0] for i in range(120, 0, -1)],
+        "series": series(rh),
     }
     return {
         "server_now_ms": now, "data_now_ms": last_rx,
-        "range_min": 360, "banner": "", "banner_key": "stale",
+        "range_min": range_min, "banner": "", "banner_key": "stale",
         "banner_args": {"mins": int((now - last_rx) / 60_000 + 0.5), "last": "18/11 10:55"},
         "model": "RandomForest", "last_rx_ms": last_rx,
         "thresholds": {"fan_on": 55, "fan_off": 45, "alert": 60},
@@ -69,7 +82,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path.startswith("/api/state"):
-            st = fixture_state()
+            q = parse_qs(urlparse(self.path).query)
+            try:
+                rng = int(q.get("range", ["360"])[0])
+            except ValueError:
+                rng = 360
+            st = fixture_state(rng)
             if FLAGS["empty_alerts"]:                  # the "oversized empty panel" case
                 st["alerts"] = []
                 st["events"] = [
@@ -153,6 +171,37 @@ def main():
         check("table headers translated (TH)", th_headers[0] == "เวลา" and th_headers[3] == "พัดลม A",
               str(th_headers))
         page.locator("#tableBtn").click()
+
+        # 1h / 6h / 24h must actually re-fetch and redraw: a fixture that ignores ?range= (or a client
+        # that never passes it) leaves the chart identical, which is what a user reports as "dead buttons"
+        def range_sig():
+            return page.evaluate("""(() => {
+              const svg = document.getElementById('chart');
+              const ticks = [...svg.querySelectorAll('text')].filter(t => /^\\d\\d:\\d\\d$/.test(t.textContent));
+              const d = [...svg.querySelectorAll('path')].map(p => p.getAttribute('d') || '').join('');
+              return { first: ticks[0] ? ticks[0].textContent : '', n: ticks.length,
+                       verts: (d.match(/[ML]/g) || []).length,
+                       pressed: [...document.querySelectorAll('#range button')]
+                                 .filter(b => b.getAttribute('aria-pressed') === 'true')
+                                 .map(b => b.textContent) };
+            })()""")
+        seen = {}
+        for label, mins in (("1 ชม.", 60), ("6 ชม.", 360), ("24 ชม.", 1440)):
+            page.locator(f"#range button:has-text('{label}')").click()
+            page.wait_for_timeout(700)
+            sig = range_sig()
+            seen[mins] = sig
+            check(f"range button {mins} min redraws the chart",
+                  sig["pressed"] == [label] and sig["verts"] > 0,
+                  f"pressed={sig['pressed']} verts={sig['verts']}")
+        check("range buttons request different amounts of data",
+              seen[60]["verts"] < seen[360]["verts"] < seen[1440]["verts"],
+              f"1h={seen[60]['verts']} 6h={seen[360]['verts']} 24h={seen[1440]['verts']} vertices")
+        check("range buttons move the chart's time axis",
+              seen[60]["first"] != seen[1440]["first"],
+              f"1h starts {seen[60]['first']} vs 24h {seen[1440]['first']}")
+        page.locator("#range button:has-text('6 ชม.')").click()
+        page.wait_for_timeout(600)
 
         page.locator("#langBtn").click()
         page.wait_for_timeout(600)
