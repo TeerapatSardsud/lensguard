@@ -203,6 +203,85 @@ def main():
         page.locator("#range button:has-text('6 ชม.')").click()
         page.wait_for_timeout(600)
 
+        # ---- chart interaction + long-range visualisation (external review P0/P1) ----
+        chart = page.locator("#chart")
+        cbox = chart.bounding_box()
+
+        def tip_state(frac):
+            page.mouse.move(cbox["x"] + cbox["width"] * frac, cbox["y"] + cbox["height"] * 0.35)
+            page.wait_for_timeout(300)
+            return page.evaluate("""(() => {
+              const tip = document.getElementById('tip');
+              const card = document.getElementById('chart').parentElement.getBoundingClientRect();
+              return { left: parseFloat(tip.style.left || 'NaN'),
+                       x: tip.getBoundingClientRect().left - card.left,
+                       header: tip.querySelector('.t') ? tip.querySelector('.t').textContent : '' };
+            })()""")
+        # P0: `geom.X(t)` passed the translator function, so left became "NaNpx" and the tooltip was
+        # pinned at the card's left edge for every cursor position.
+        t_left, t_mid, t_right = tip_state(0.2), tip_state(0.5), tip_state(0.85)
+        check("tooltip x position is a real number, not NaN",
+              not any(v != v for v in (t_left["left"], t_mid["left"], t_right["left"])),
+              f"lefts={[t_left['left'], t_mid['left'], t_right['left']]}")
+        check("tooltip follows the cursor across the plot",
+              t_left["x"] < t_mid["x"] < t_right["x"],
+              f"x={t_left['x']:.0f} -> {t_mid['x']:.0f} -> {t_right['x']:.0f}")
+
+        # P1: 24 h must aggregate (raw 1-min points are ~1.4px apart) and keep a min-max envelope
+        page.locator("#range button:has-text('24 ชม.')").click()
+        page.wait_for_timeout(800)
+        agg24 = page.evaluate("""(() => ({
+          bucket: geom.bucketMs / 60000,
+          bands: [...document.querySelectorAll('#chart path[fill-opacity]')].length,
+          header: (() => { const t = document.getElementById('tip');
+            return t.style.display === 'block' ? (t.querySelector('.t') || {}).textContent : null; })(),
+        }))()""")
+        check("24 h aggregates to a legible bucket width", agg24["bucket"] >= 2, f"bucket={agg24['bucket']} min")
+        check("24 h draws a min-max envelope per series", agg24["bands"] == 2, f"bands={agg24['bands']}")
+        cbox = page.locator("#chart").bounding_box()
+        page.mouse.move(cbox["x"] + cbox["width"] * 0.6, cbox["y"] + cbox["height"] * 0.35)
+        page.wait_for_timeout(350)
+        tip24 = page.locator("#tip .t").inner_text()
+        check("aggregated tooltip names its bucket span and min-max",
+              "–" in tip24 and ("5" in tip24 or "10" in tip24), repr(tip24))
+        page.locator("#range button:has-text('1 ชม.')").click()
+        page.wait_for_timeout(700)
+        check("1 h keeps raw readings (no aggregation)",
+              page.evaluate("geom.bucketMs") == 0, f"bucketMs={page.evaluate('geom.bucketMs')}")
+
+        # P1: the axis anchors to now, so a dead feed leaves a visible gap instead of running to the edge
+        gap = page.evaluate("""(() => {
+          const labels = [...document.querySelectorAll('#chart text.gap')].map(t => t.textContent);
+          const rects = [...document.querySelectorAll('#chart rect')]
+            .filter(r => r.getAttribute('opacity') === '0.7').length;
+          return { labels, rects };
+        })()""")
+        check("stale feed shades the missing interval on the chart",
+              len(gap["labels"]) == 1 and gap["rects"] == 1, str(gap))
+        check("gap is labelled with the last reading time", "12:" in gap["labels"][0] or "•" in gap["labels"][0],
+              str(gap["labels"]))
+
+        # P1: no global dimming — stale state must stay at full contrast
+        check("stale state does not dim the whole board",
+              page.evaluate("getComputedStyle(document.getElementById('main')).opacity") == "1",
+              page.evaluate("getComputedStyle(document.getElementById('main')).opacity"))
+
+        # P2: the table states its row cap instead of silently truncating (needs > 240 rows, so 24 h)
+        page.locator("#range button:has-text('24 ชม.')").click()
+        page.wait_for_timeout(800)
+        page.locator("#tableBtn").click()
+        page.wait_for_timeout(400)
+        tbl = page.evaluate("""(() => ({ rows: document.querySelectorAll('#tableWrap tbody tr').length,
+          note: (document.querySelector('.tbl-note') || {}).textContent || null }))()""")
+        check("table says when it is showing a capped subset",
+              tbl["rows"] == 240 and tbl["note"] and "240" in tbl["note"], str(tbl))
+        page.locator("#tableBtn").click()
+        page.wait_for_timeout(200)
+        # back to 6 h for the remaining (tooltip / language) checks: at 1 h the tail is empty by design,
+        # so a cursor over it legitimately reports "–"
+        page.locator("#range button:has-text('6 ชม.')").click()
+        page.wait_for_timeout(700)
+
         # palette contract: semantic chart lines must outrank decorative gridlines, and every text
         # colour must clear WCAG AA. Measured on the real cascade (color-mix included), so a theme
         # tweak that dims a threshold or a label fails here instead of in a projector room.
@@ -302,6 +381,14 @@ def main():
         mobile.wait_for_timeout(600)
         overflow = mobile.evaluate("document.documentElement.scrollWidth - window.innerWidth")
         check("no horizontal overflow at 390px", overflow <= 0, f"overflow={overflow}px")
+        m_chart = mobile.evaluate("""(() => {
+          const svg = document.getElementById('chart');
+          const viewW = Number(svg.getAttribute('viewBox').split(' ')[2]);
+          return [...svg.querySelectorAll('text')]
+            .filter(t => { const b = t.getBBox(); return b.x < -0.5 || b.x + b.width > viewW + 0.5; })
+            .map(t => t.textContent);
+        })()""")
+        check("no chart label is clipped at 390px", not m_chart, str(m_chart))
 
         # an empty panel must hug its own content, not stretch to the taller neighbour, and its
         # empty state is one icon + one label (the old markup emitted empty placeholder spans)
