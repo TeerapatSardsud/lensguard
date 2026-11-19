@@ -8,39 +8,44 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Noto+Sans+Thai:wght@400;500;600&display=swap">
 <style>
-/* Layout: blue app bar -> 1 Overview (Box A, Box B, Gateway) -> 2 Humidity chart -> 3 Alerts | Events.
-   Palette follows Facebook's light blue theme; fonts are loopless Thai (Prompt for numbers/headings, Noto Sans Thai for text). */
+/* Layout: black app bar -> 1 Overview (Box A, Box B, Gateway) -> 2 Humidity chart -> 3 Alerts | Events.
+   Neutral warm ground with a near-black app bar carries the chrome; blue is reserved as the accent for
+   controls and the Box A series, so colour always means something. Fonts are loopless Thai (Prompt for
+   numbers/headings, Noto Sans Thai for text). */
 :root {
   color-scheme: light;
-  --bg: #f0f2f5; --surface: #ffffff; --surface-2: #f0f2f5; --line: #e4e6eb;
-  --ink: #050505; --ink-2: #65676b; --muted: #8a8d91;
-  --blue: #1877f2; --blue-ink: #ffffff; --blue-soft: #e7f0fd;
-  --s1: #1877f2; --s2: #eb6834;
-  --good: #31a24c; --warning: #d9960a; --serious: #e8692b; --critical: #e41e3f;
-  --grid: #e4e6eb; --axis: #ced0d4;
-  --r: 12px; --shadow: 0 1px 2px rgba(0,0,0,.08);
+  --bg: #f4f4f1; --surface: #ffffff; --surface-2: #efeee8; --line: #e2e1d9;
+  --ink: #0b0b0b; --ink-2: #4a4a45; --muted: #6b6b64;
+  --bar: #141618; --bar-ink: #ffffff;
+  --blue: #1f6fd0; --blue-ink: #ffffff; --blue-soft: #e8eef8;
+  --s1: #1f6fd0; --s2: #d95f26;
+  --good: #0f8a2f; --warning: #a8730a; --serious: #c2521c; --critical: #c62828;
+  --grid: #e2e1d9; --axis: #9a998f; --thr: #8a897f; --track: #ecebe4;
+  --r: 14px; --shadow: 0 1px 2px rgba(0,0,0,.06);
   --display: "Prompt", "Noto Sans Thai", system-ui, sans-serif;
   --text: "Noto Sans Thai", "Prompt", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --bg: #18191a; --surface: #242526; --surface-2: #3a3b3c; --line: #3e4042;
-    --ink: #e4e6eb; --ink-2: #b0b3b8; --muted: #8a8d91;
-    --blue: #2d88ff; --blue-ink: #ffffff; --blue-soft: #263951;
-    --s1: #4599ff; --s2: #e8692b;
-    --good: #45bd62; --warning: #f7b928; --serious: #f0803c; --critical: #f3425f;
-    --grid: #3e4042; --axis: #4e5052; --shadow: 0 1px 2px rgba(0,0,0,.4);
+    --bg: #0a0a0a; --surface: #1c1c1b; --surface-2: #262624; --line: #3a3a37;
+    --ink: #f4f3ef; --ink-2: #d8d7d0; --muted: #b0afa7;
+    --bar: #0a0b0c; --bar-ink: #ffffff;
+    --blue: #4599ff; --blue-ink: #0d0d0d; --blue-soft: #1b2b3d;
+    --s1: #4599ff; --s2: #ef7f45;
+    --good: #45bd62; --warning: #f7b928; --serious: #f0803c; --critical: #ff6b6b;
+    --grid: #2c2c2a; --axis: #7a7972; --thr: #8f8e86; --track: #242422; --shadow: 0 1px 2px rgba(0,0,0,.4);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #18191a; --surface: #242526; --surface-2: #3a3b3c; --line: #3e4042;
-  --ink: #e4e6eb; --ink-2: #b0b3b8; --muted: #8a8d91;
-  --blue: #2d88ff; --blue-ink: #ffffff; --blue-soft: #263951;
-  --s1: #4599ff; --s2: #e8692b;
-  --good: #45bd62; --warning: #f7b928; --serious: #f0803c; --critical: #f3425f;
-  --grid: #3e4042; --axis: #4e5052; --shadow: 0 1px 2px rgba(0,0,0,.4);
+  --bg: #0a0a0a; --surface: #1c1c1b; --surface-2: #262624; --line: #3a3a37;
+  --ink: #f4f3ef; --ink-2: #d8d7d0; --muted: #b0afa7;
+  --bar: #0a0b0c; --bar-ink: #ffffff;
+  --blue: #4599ff; --blue-ink: #0d0d0d; --blue-soft: #1b2b3d;
+  --s1: #4599ff; --s2: #ef7f45;
+  --good: #45bd62; --warning: #f7b928; --serious: #f0803c; --critical: #ff6b6b;
+  --grid: #2c2c2a; --axis: #7a7972; --thr: #8f8e86; --track: #242422; --shadow: 0 1px 2px rgba(0,0,0,.4);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -50,15 +55,15 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 button:focus-visible, .chart:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 /* app bar */
-.bar { background: var(--blue); color: var(--blue-ink); box-shadow: var(--shadow); position: sticky; top: 0; z-index: 5; }
+.bar { background: var(--bar); color: var(--bar-ink); box-shadow: var(--shadow); position: sticky; top: 0; z-index: 5; }
 .bar .in { max-width: 1120px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; min-width: 0; flex: none; }
-.logo { width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.18); display: grid; place-items: center; flex: none; }
-.brand h1 { font-size: 19px; line-height: 1.1; color: var(--blue-ink); }
-.brand p { margin: 0; font-size: 12px; opacity: .85; }
+.logo { width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.14); display: grid; place-items: center; flex: none; }
+.brand h1 { font-size: 19px; line-height: 1.1; color: var(--bar-ink); }
+.brand p { margin: 0; font-size: 12px; opacity: .75; }
 .pill { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; font-size: 13px;
-  background: rgba(255,255,255,.16); color: var(--blue-ink); white-space: nowrap; }
-.pill.btn:hover { background: rgba(255,255,255,.26); }
+  background: rgba(255,255,255,.12); color: var(--bar-ink); white-space: nowrap; }
+.pill.btn:hover { background: rgba(255,255,255,.22); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.6); flex: none; }
 .dot.live { background: #7ee787; } .dot.dead { background: #ffb3b3; }
 .dot.on { background: var(--good); } .dot.off { background: var(--critical); }
@@ -69,12 +74,13 @@ button:focus-visible, .chart:focus-visible { outline: 2px solid var(--blue); out
 .banner { background: color-mix(in srgb, var(--warning) 18%, var(--surface)); border-left: 4px solid var(--warning);
   border-radius: var(--r); padding: 10px 14px; font-size: 14px; display: flex; gap: 10px; align-items: center; }
 .banner[hidden] { display: none; }   /* .banner's display:flex overrides the hidden attribute without this */
-main { display: grid; gap: 24px; transition: opacity .2s; }
-main.stale { opacity: .55; }
+main { display: grid; gap: 24px; }
+/* No global dimming for stale state (external review, P1): the header dot, the banner and the per-card
+   badges already say "offline", and dropping opacity over the whole board cost real legibility. */
 section > .sec { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
 .sec h2 { font-size: 17px; }
 .sec .hint { font-size: 13px; color: var(--ink-2); }
-.card { background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); padding: 18px 20px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: 18px 20px; min-width: 0; }
 .card h3 { font-size: 15px; display: flex; align-items: center; gap: 8px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .key { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
@@ -88,7 +94,7 @@ section > .sec { display: flex; align-items: baseline; justify-content: space-be
 .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 14px 0 16px; flex-wrap: wrap; }
 .hero .num { font-size: 56px; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .hero .unit { font-size: 16px; color: var(--ink-2); margin-left: 4px; font-family: var(--text); font-weight: 500; }
-.card.off .hero .num { color: var(--muted); }
+.card.off .hero .num { color: var(--ink-2); }   /* stale but still the headline reading — do not grey it out */
 .state { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; font-size: 13px; font-weight: 500;
   background: var(--surface-2); color: var(--ink); max-width: 100%; }
 .state svg { width: 15px; height: 15px; flex: none; }
@@ -114,20 +120,25 @@ section > .sec { display: flex; align-items: baseline; justify-content: space-be
 .gw .rows { display: grid; gap: 8px; margin-top: 12px; }
 .gw .row { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 .gw .row:last-child { border-bottom: 0; padding-bottom: 0; }
+.gw-note { margin: 8px 0 0; font-size: 12px; color: var(--ink-2); }
+.gw.off .rows .row b { color: var(--ink-2); }   /* last-known numbers must not read as live */
 
 /* 2. chart */
 .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .seg { display: inline-flex; background: var(--surface-2); border-radius: 8px; padding: 3px; }
 .seg button { padding: 5px 14px; border-radius: 6px; font-size: 13px; color: var(--ink-2); font-weight: 500; }
-.seg button[aria-pressed="true"] { background: var(--surface); color: var(--blue); box-shadow: var(--shadow); }
-.tbtn { padding: 6px 12px; border-radius: 8px; font-size: 13px; color: var(--blue); background: var(--blue-soft); font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--blue); box-shadow: var(--shadow); border: 1px solid var(--line); font-weight: 600; }
+.tbtn { padding: 6px 12px; border-radius: 8px; font-size: 13px; color: var(--ink); background: var(--surface-2); font-weight: 500; border: 1px solid var(--line); }
+.tbtn:hover { background: var(--line); }
 .chart-card { position: relative; }
 .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); margin-bottom: 4px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend .agg-hint { color: var(--ink-2); font-style: italic; }
 .chart { width: 100%; display: block; margin-top: 6px; touch-action: pan-y; }
 .chart text { font-size: 11px; fill: var(--ink-2); font-variant-numeric: tabular-nums; font-family: var(--text); }
 .chart .end { fill: var(--ink); font-size: 12px; font-weight: 600; }
 .chart .thr { fill: var(--ink-2); font-size: 11px; }
+.chart .gap { fill: var(--ink-2); font-size: 11px; }
 .tip { position: absolute; pointer-events: none; background: var(--surface); box-shadow: 0 6px 24px rgba(0,0,0,.18); border: 1px solid var(--line);
   border-radius: 10px; padding: 10px 12px; font-size: 13px; min-width: 170px; display: none; z-index: 2; }
 .tip .t { color: var(--ink-2); margin-bottom: 6px; font-size: 12px; }
@@ -139,14 +150,17 @@ th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--lin
 th:first-child, td:first-child { text-align: left; }
 th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background: var(--surface); }
 .table-wrap { max-height: 360px; overflow: auto; margin-top: 10px; }
+.tbl-note { margin: 8px 0 0; font-size: 12px; color: var(--ink-2); }
 
 /* 3. alerts | events */
-.grid2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; }
+/* panels hug their own content: an empty Alerts list must not stretch to the Events card's height */
+.grid2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; align-items: start; }
 @media (max-width: 760px) { .grid2 { grid-template-columns: minmax(0,1fr); } }
 .list .when { max-width: 40%; white-space: normal; text-align: right; }
 .list { list-style: none; margin: 8px 0 0; padding: 0; }
 .list li { display: grid; grid-template-columns: 20px 1fr auto; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; align-items: start; }
 .list li:last-child { border-bottom: 0; }
+.list li.empty { padding: 8px 0 2px; border-bottom: 0; color: var(--ink-2); }
 .list .when { color: var(--muted); font-size: 12px; white-space: nowrap; padding-top: 2px; }
 .list .txt { white-space: pre-line; }
 .list svg { width: 18px; height: 18px; margin-top: 2px; }
@@ -249,11 +263,15 @@ const I18N = {
     "gw.ambient": "อุณหภูมิภายนอก", "gw.exc": "ดีมาก", "gw.good": "ดี", "gw.fair": "พอใช้", "gw.weak": "อ่อน",
     "gw.uptime": "เวลาทำงานต่อเนื่อง", "gw.buffer": "ข้อมูลรอส่ง", "gw.items": "{n} รายการ",
     "gw.rx": "แพ็กเก็ตที่รับ (ซ้ำ)", "gw.model": "โมเดล AI",
+    "gw.uptime_last": "เวลาทำงานตอนติดต่อได้", "gw.stale_note": "ค่าที่เห็นเป็นค่าล่าสุดที่รับได้เมื่อ {at} ไม่ใช่ค่าสด · สัญญาณ Wi-Fi ที่ยังขึ้นว่าดีคือค่าที่วัดได้ตอนนั้น",
     "gw.nomodel": "ไม่มีโมเดล ใช้กฎสำรอง", "gw.nodes": "โหนดอื่นที่พบ",
     "chart.empty": "ยังไม่มีข้อมูลในช่วงเวลานี้",
+    "chart.gap": "ไม่มีข้อมูลหลัง {at}",
+    "legend.agg": "เฉลี่ย {m} นาที/จุด · แถบจาง = ค่าต่ำ–สูง",
     "thr.alert": "แจ้งเตือน", "thr.fan_on": "พัดลมเปิด", "thr.fan_off": "พัดลมปิด",
     "tbl.show": "ตารางข้อมูล",
     "tbl.caption": "ค่าความชื้นรายนาที รายการล่าสุดอยู่บนสุด", "tbl.time": "เวลา", "tbl.hide": "ซ่อนตาราง",
+    "tbl.capped": "แสดง {n} แถวล่าสุดจากทั้งหมด {total} แถว ในช่วงเวลานี้",
     "alerts.empty": "ยังไม่มีการแจ้งเตือน", "events.empty": "ยังไม่มีเหตุการณ์",
     "ev.fan": "{box}: พัดลม{v} · {why}",
     "ev.silica": "{box}: ซิลิกาเจลน่าจะอิ่มตัว (เปิดพัดลม 30 นาที ความชื้น{tail}%)",
@@ -292,11 +310,15 @@ const I18N = {
     "gw.ambient": "Ambient temperature", "gw.exc": "Excellent", "gw.good": "Good", "gw.fair": "Fair", "gw.weak": "Weak",
     "gw.uptime": "Uptime", "gw.buffer": "Queued readings", "gw.items": "{n} pending",
     "gw.rx": "Packets received (duplicates)", "gw.model": "AI model",
+    "gw.uptime_last": "Uptime at last contact", "gw.stale_note": "These are the last readings received at {at}, not live. The Wi-Fi figure was good at that moment and may have changed since.",
     "gw.nomodel": "No model — using fallback rule", "gw.nodes": "Other nodes detected",
     "chart.empty": "No data in this range",
+    "chart.gap": "no data after {at}",
+    "legend.agg": "averaged per {m} min · faint band = min–max",
     "thr.alert": "Alert", "thr.fan_on": "Fan ON", "thr.fan_off": "Fan OFF",
     "tbl.show": "Table",
     "tbl.caption": "Minute-by-minute humidity, newest first", "tbl.time": "Time", "tbl.hide": "Hide table",
+    "tbl.capped": "Showing the newest {n} of {total} rows in this range",
     "alerts.empty": "No alerts yet", "events.empty": "No events yet",
     "ev.fan": "{box}: fan {v} · {why}",
     "ev.silica": "{box}: silica gel likely saturated (after 30 min of fan, RH {tail}%)",
@@ -444,7 +466,8 @@ function systemCard(st) {
   const rows = [
     [t("gw.ambient"), g.temp_out == null ? "–" : fmt1(g.temp_out) + " °C"],
     ["Wi-Fi", rssi ? `${q} (${rssi} dBm)` : "–"],
-    [t("gw.uptime"), g.uptime_s == null ? "–" : dur(g.uptime_s * 1000)],
+    // offline: uptime_s is a value frozen at the last contact, not a live counter
+    [t(g.online ? "gw.uptime" : "gw.uptime_last"), g.uptime_s == null ? "–" : dur(g.uptime_s * 1000)],
     [t("gw.buffer"), g.buffered == null ? "–" : t("gw.items", { n: g.buffered })],
     [t("gw.rx"), g.rx_ok == null ? "–" : `${g.rx_ok} (${g.rx_dup || 0})`],
     [t("gw.model"), st.model || t("gw.nomodel")],
@@ -453,6 +476,13 @@ function systemCard(st) {
   const sys = el("div", { class: "rows" });
   for (const [k, v] of rows) sys.append(el("div", { class: "row" }, el("span", {}, k), el("b", {}, v)));
   card.append(sys);
+  // one plain sentence so "offline card, good Wi-Fi" cannot read as a contradiction
+  if (!g.online && (g.temp_out != null || g.rssi != null || g.uptime_s != null)) {
+    card.append(el("p", { class: "gw-note" }, t("gw.stale_note", {
+      ago: ago(g.rx_ms ? st.server_now_ms - g.rx_ms : null),
+      at: g.rx_ms ? hhmm(g.rx_ms) : "–",
+    })));
+  }
   return card;
 }
 
@@ -461,7 +491,8 @@ let geom = null;
 function drawChart(st) {
   const svg = $("chart"); svg.replaceChildren();
   const W = svg.clientWidth || 800, plotH = W < 480 ? 200 : 240;
-  const m = { l: 48, r: W < 480 ? 56 : 74, t: 10 }, stripTop = m.t + plotH + 12, rowH = 10, rowGap = 6;
+  // tight gutters on phones: the reviewer measured the plot as a narrow strip inside a wide card
+  const m = { l: W < 480 ? 34 : 48, r: W < 480 ? 40 : 74, t: 10 }, stripTop = m.t + plotH + 12, rowH = 10, rowGap = 6;
   const H = stripTop + 2 * rowH + rowGap + 26;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("height", H);
   const series = BOXES.map(([id, color]) => ({ id, name: boxLabel(id), color: css(color), pts: st.boxes[id].series }));
@@ -471,13 +502,89 @@ function drawChart(st) {
     svg.append(s("text", { x: W / 2, y: 70, "text-anchor": "middle", style: "font-size:14px" }, t("chart.empty")));
     geom = null; return;
   }
-  const x1 = st.data_now_ms, x0 = x1 - st.range_min * 60000;
+  // Anchor the axis to NOW (server time), not to the newest reading. Anchoring to the last record
+  // guaranteed the line always ran to the right edge, so a feed dead for hours looked live up to "now"
+  // (external review, P1). Only fall back to data_now if the feed reports a future timestamp (clock skew).
+  const x1 = Math.max(st.server_now_ms || 0, st.data_now_ms), x0 = x1 - st.range_min * 60000;
   const rhs = all.map((p) => p[1]);
   const th = st.thresholds;
   const lo = Math.min(40, Math.floor((Math.min(...rhs) - 2) / 5) * 5);
   const hi = Math.max(th.alert + 5, Math.ceil((Math.max(...rhs) + 2) / 5) * 5);
   const X = (t) => m.l + ((t - x0) / (x1 - x0)) * (W - m.l - m.r);
   const Y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * plotH;
+  const plotW = W - m.l - m.r;
+
+  // Clip a raw series to the visible window [x0, x1], interpolating the crossing point so the path
+  // never starts/ends outside the plot. Without this the polyline ran under the "พัดลม A/B" labels and
+  // past the left gutter (external review v2, P1).
+  const clipPts = (pts) => {
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i], next = pts[i + 1], prev = pts[i - 1];
+      if (p[0] < x0) {
+        if (next && next[0] >= x0) {
+          const f = (x0 - p[0]) / (next[0] - p[0]);
+          out.push([x0, p[1] + (next[1] - p[1]) * f, p[2]]);
+        }
+        continue;
+      }
+      if (p[0] > x1) {
+        if (prev && prev[0] <= x1) {
+          const f = (x1 - prev[0]) / (p[0] - prev[0]);
+          out.push([x1, prev[1] + (p[1] - prev[1]) * f, prev[2]]);
+        }
+        break;
+      }
+      out.push(p);
+    }
+    return out;
+  };
+
+  // Resolution-aware aggregation: raw readings are only honest at short ranges. With one 1-min point
+  // per ~1.4px at 24 h, plotting every reading produced a solid waveform (external review, P1), so
+  // bucket to a pixel-legible width and draw a min-max band under the mean so spikes stay visible.
+  const BUCKET_MS = (() => {
+    const perMinPx = plotW / st.range_min;
+    if (perMinPx >= 2.2) return 0;                                   // room for every reading
+    const steps = [2, 5, 10, 15, 30, 60];
+    return (steps.find((k) => perMinPx * k >= 2.2) || 60) * 60000;
+  })();
+  const bucket = (pts) => {
+    if (!BUCKET_MS) return { pts: pts.map((p) => [p[0], p[1], p[2], null]), band: [], step: 0 };
+    const out = [], band = [];
+    let key = null, sum = 0, sumT = 0, n = 0, mn = 0, mx = 0, fan = 0;
+    const flush = () => {
+      if (!n) return;
+      // the plotted point sits at the MEAN timestamp of its observations, not the bucket's left edge:
+      // anchoring to the edge shifted every average up to half a bucket earlier (review v2, P2)
+      out.push([sumT / n, sum / n, fan > n / 2 ? 1 : 0, key]);
+      if (mn !== mx) band.push([key, mn, mx]);     // envelope keeps bucket boundaries, per the review
+      n = 0; sum = 0; sumT = 0;
+    };
+    for (const p of pts) {
+      const k = Math.floor(p[0] / BUCKET_MS) * BUCKET_MS;
+      if (k !== key) { flush(); key = k; mn = p[1]; mx = p[1]; fan = 0; }
+      sum += p[1]; sumT += p[0]; n++;
+      if (p[1] < mn) mn = p[1]; if (p[1] > mx) mx = p[1];
+      if (p[2]) fan++;
+    }
+    flush();
+    return { pts: out, band, step: BUCKET_MS / 60000 };
+  };
+  const agg = series.map((se) => ({ ...se, ...bucket(clipPts(se.pts)) }));
+  // a missing interval is a discontinuity: consecutive readings further apart than this must not be
+  // joined, or a comms outage is drawn as continuous measurement (review v2, P2)
+  const GAP_MS = BUCKET_MS ? BUCKET_MS * 1.5 : 180000;
+  const runs = (arr) => {
+    const out = [];
+    let cur = [];
+    for (const item of arr) {
+      if (cur.length && item[0] - cur[cur.length - 1][0] > GAP_MS) { out.push(cur); cur = []; }
+      cur.push(item);
+    }
+    if (cur.length) out.push(cur);
+    return out;
+  };
 
   for (let v = Math.ceil(lo / 10) * 10; v <= hi; v += 10) {
     svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--grid"), "stroke-width": 1 }));
@@ -485,10 +592,19 @@ function drawChart(st) {
   }
   for (const [v, label] of [[th.alert, t("thr.alert")], [th.fan_on, t("thr.fan_on")], [th.fan_off, t("thr.fan_off")]]) {
     if (v < lo || v > hi) continue;
-    svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--axis"), "stroke-width": 1, "stroke-dasharray": "4 4" }));
+    svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--thr"), "stroke-width": 1, "stroke-dasharray": "5 4" }));
     svg.append(s("text", { class: "thr", x: m.l + 6, y: Y(v) - 4 }, `${v}% ${label}`));
   }
-  const plotW = W - m.l - m.r;
+  const lastMs = Math.max(...all.map((p) => p[0]));
+  // The axis ends at "now" (x1). A stale feed therefore leaves a visibly empty tail — commit the
+  // offline gap to the picture instead of running the line to the right edge, where it reads as live.
+  const staleTailMs = x1 - lastMs - (BUCKET_MS || 60000);
+  if (staleTailMs > 60000) {
+    svg.append(s("rect", { x: X(lastMs + (BUCKET_MS || 0)), y: m.t, width: Math.max(2, W - m.r - X(lastMs + (BUCKET_MS || 0))),
+      height: plotH, fill: css("--surface-2"), opacity: 0.7 }));
+    svg.append(s("text", { class: "gap", x: W - m.r - 6, y: m.t + 14, "text-anchor": "end" },
+      t("chart.gap", { at: hhmm(lastMs) })));
+  }
   const step = [5, 10, 15, 30, 60, 120, 180, 240, 360, 720].find((st_) => (plotW / (st.range_min / st_)) >= 60) || 720;
   const first = Math.ceil(x0 / (step * 60000)) * step * 60000;
   for (let t = first; t <= x1; t += step * 60000) {
@@ -496,33 +612,59 @@ function drawChart(st) {
   }
   svg.append(s("line", { x1: m.l, x2: W - m.r, y1: m.t + plotH, y2: m.t + plotH, stroke: css("--axis"), "stroke-width": 1 }));
 
-  for (const se of series) {
-    let d = "", prev = null;
-    for (const p of se.pts) {
-      d += (prev && p[0] - prev[0] <= 180000 ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1);
-      prev = p;
+  // bucket keys are floor-aligned, so the first key can sit just left of x0; clamp the drawn coordinate
+  // to the plot box or the band bleeds into the gutter by a pixel
+  const XC = (t) => Math.max(m.l, Math.min(W - m.r, X(t)));
+
+  for (const se of agg) {
+    // envelope + mean line, drawn per continuous run so an outage is never bridged by a solid band
+    const bandRuns = runs(se.band);
+    for (const run of bandRuns) {
+      if (run.length < 2) continue;
+      let up = "";
+      for (const [k, , mx] of run) up += (up ? "L" : "M") + XC(k).toFixed(1) + " " + Y(mx).toFixed(1);
+      let down = "";
+      for (let i = run.length - 1; i >= 0; i--) down += "L" + XC(run[i][0]).toFixed(1) + " " + Y(run[i][1]).toFixed(1);
+      svg.append(s("path", { d: up + down + "Z", fill: se.color, "fill-opacity": 0.16, stroke: "none" }));
     }
-    svg.append(s("path", { d, fill: "none", stroke: se.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    for (const run of runs(se.pts)) {
+      let d = "";
+      for (const p of run) d += (d ? "L" : "M") + XC(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1);
+      svg.append(s("path", { d, fill: "none", stroke: se.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    }
   }
-  const ends = series.filter((se) => se.pts.length).map((se) => ({ se, p: se.pts[se.pts.length - 1], y: Y(se.pts[se.pts.length - 1][1]) }));
+  const ends = agg.filter((se) => se.pts.length).map((se) => ({ se, p: se.pts[se.pts.length - 1], y: Y(se.pts[se.pts.length - 1][1]) }));
   if (ends.length === 2 && Math.abs(ends[0].y - ends[1].y) < 16) {
     const [a, b] = ends[0].y < ends[1].y ? ends : [ends[1], ends[0]];
     const mid = (a.y + b.y) / 2; a.ly = mid - 8; b.ly = mid + 8;
   }
   for (const e of ends) {
     svg.append(s("circle", { cx: X(e.p[0]), cy: e.y, r: 4, fill: e.se.color, stroke: css("--surface"), "stroke-width": 2 }));
-    svg.append(s("text", { class: "end", x: W - m.r + 8, y: (e.ly ?? e.y) + 4 }, `${e.se.name.slice(-1)} ${Math.round(e.p[1])}%`));
+    // phone: the series letter alone, since "A 50%" overflows the gutter at 390px; the value is in the
+    // tooltip and the table. Desktop keeps the value inline, which is what makes the chart self-reading.
+    const endLabel = W < 480 ? e.se.name.slice(-1) : `${e.se.name.slice(-1)} ${Math.round(e.p[1])}%`;
+    svg.append(s("text", { class: "end", x: W - m.r + (W < 480 ? 6 : 8), y: (e.ly ?? e.y) + 4 }, endLabel));
   }
   series.forEach((se, i) => {
     const y = stripTop + i * (rowH + rowGap);
-    svg.append(s("text", { x: m.l - 8, y: y + rowH - 1, "text-anchor": "end" }, t("stat.fan") + " " + se.name.slice(-1)));
-    svg.append(s("rect", { x: m.l, y, width: W - m.l - m.r, height: rowH, rx: 3, fill: css("--surface-2") }));
+    // on phones the strip label is just "A"/"B": the full "พัดลม A" string was wider than the 34px gutter
+    // after the margins were tightened, so it got clipped at the left edge
+    const stripLabel = W < 480 ? se.name.slice(-1) : t("stat.fan") + " " + se.name.slice(-1);
+    svg.append(s("text", { x: m.l - (W < 480 ? 6 : 8), y: y + rowH - 1, "text-anchor": "end" }, stripLabel));
+    svg.append(s("rect", { x: m.l, y, width: W - m.l - m.r, height: rowH, rx: 3, fill: css("--track") }));
     let start = null;
-    const flush = (end) => { if (start != null) svg.append(s("rect", { x: X(start), y, width: Math.max(2, X(end) - X(start)), height: rowH, rx: 3, fill: se.color, opacity: 0.85 })); start = null; };
-    se.pts.forEach((p, j) => {
+    // clip each fan interval to the plot: an interval that began before x0 was drawing left under the
+    // "พัดลม A/B" label (measured: rect x=10.6 vs plot left 48 at 6 h) — review v2, P1
+    const flush = (end) => {
+      if (start == null) return;
+      const vs = Math.max(start, x0), ve = Math.min(end, x1);
+      if (ve > vs) svg.append(s("rect", { x: X(vs), y, width: Math.max(2, X(ve) - X(vs)), height: rowH, rx: 3, fill: se.color, opacity: 0.85 }));
+      start = null;
+    };
+    clipPts(se.pts).forEach((p, j, arr) => {   // raw points: bucket-averaging would swallow short fan pulses
       if (p[2] && start == null) start = p[0];
       if (!p[2] && start != null) flush(p[0]);
-      if (j === se.pts.length - 1) flush(p[0] + 60000);
+      if (j === arr.length - 1) flush(p[0] + 60000);
     });
   });
   const cross = s("line", { y1: m.t, y2: stripTop + 2 * rowH + rowGap, stroke: css("--ink-2"), "stroke-width": 1, visibility: "hidden" });
@@ -530,7 +672,7 @@ function drawChart(st) {
   svg.append(cross, ...dots);
   const hit = s("rect", { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: "transparent" });
   svg.append(hit);
-  geom = { X, Y, x0, x1, m, W, series, cross, dots };
+  geom = { X, Y, x0, x1, m, W, series: agg, cross, dots, bucketMs: BUCKET_MS };
   hit.addEventListener("pointermove", (ev) => {
     const r = svg.getBoundingClientRect();
     const px = ((ev.clientX - r.left) / r.width) * W;
@@ -539,27 +681,37 @@ function drawChart(st) {
   hit.addEventListener("pointerleave", hideTip);
   if (cursor != null) showAt(cursor);
 }
-function nearest(pts, t) {
+function nearest(pts, t, bucketMs = 0) {
   let lo = 0, hi = pts.length - 1;
   if (hi < 0) return null;
   while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (pts[mid][0] < t) lo = mid; else hi = mid; }
   const p = Math.abs(pts[lo][0] - t) <= Math.abs(pts[hi][0] - t) ? pts[lo] : pts[hi];
-  return Math.abs(p[0] - t) <= 120000 ? p : null;
+  // when aggregated, a cursor anywhere inside the bucket must still resolve to that bucket
+  const tol = bucketMs ? bucketMs * 1.5 : 120000;
+  return Math.abs(p[0] - t) <= tol ? p : null;
 }
 function showAt(cursorMs) {
   if (!geom) return;
   const ts = Math.max(geom.x0, Math.min(geom.x1, cursorMs)); cursor = ts;
-  const tip = $("tip"); tip.replaceChildren(el("div", { class: "t" }, hhmm(ts)));
+  const bucketMs = geom.bucketMs || 0;
+  const tip = $("tip");
+  tip.replaceChildren(el("div", { class: "t" }, bucketMs
+    ? `${hhmm(Math.floor(ts / bucketMs) * bucketMs)}–${hhmm(Math.floor(ts / bucketMs) * bucketMs + bucketMs)} · ${t("legend.agg", { m: bucketMs / 60000 })}`
+    : hhmm(ts)));
   geom.cross.setAttribute("x1", geom.X(ts)); geom.cross.setAttribute("x2", geom.X(ts)); geom.cross.setAttribute("visibility", "visible");
   geom.series.forEach((se, i) => {
-    const p = nearest(se.pts, ts), dot = geom.dots[i];
+    const p = nearest(se.pts, ts, bucketMs), dot = geom.dots[i];
     if (p) { dot.setAttribute("cx", geom.X(p[0])); dot.setAttribute("cy", geom.Y(p[1])); dot.setAttribute("visibility", "visible"); }
     else dot.setAttribute("visibility", "hidden");
+    const span = p && bucketMs
+      ? (() => { const b = se.band.find((x) => x[0] === p[3]); return b ? ` (${fmt1(b[1])}–${fmt1(b[2])})` : ""; })()
+      : "";
     tip.append(el("div", { class: "r" }, el("span", { class: "k", style: `background:${se.color}` }),
-      el("b", {}, p ? fmt1(p[1]) + "%" : "–"), el("span", {}, se.name + (p ? " · " + t("stat.fan") + " " + onOff(p[2]) : ""))));
+      el("b", {}, p ? fmt1(p[1]) + "%" + span : "–"),
+      el("span", {}, se.name + (p ? " · " + t("stat.fan") + " " + onOff(p[2]) : ""))));
   });
   const svgR = $("chart").getBoundingClientRect(), cardR = $("chart").parentElement.getBoundingClientRect();
-  const px = svgR.left - cardR.left + (geom.X(t) / geom.W) * svgR.width;
+  const px = svgR.left - cardR.left + (geom.X(ts) / geom.W) * svgR.width;   // ts, not t: `t` is the translator
   tip.style.display = "block";
   const left = px + 14 + tip.offsetWidth > cardR.width - 8 ? px - 14 - tip.offsetWidth : px + 14;
   tip.style.left = Math.max(8, left) + "px"; tip.style.top = (svgR.top - cardR.top + 12) + "px";
@@ -587,17 +739,26 @@ function drawTable(st) {
   BOXES.forEach(([id], i) => st.boxes[id].series.forEach((p) => {
     const r = rows.get(p[0]) || [null, null, null, null]; r[i] = p[1]; r[i + 2] = p[2]; rows.set(p[0], r);
   }));
-  const keys = [...rows.keys()].sort((a, b) => b - a).slice(0, 240);
+  // table: show the newest rows, and say so when the range has more than fits (silent 240-row cap made
+  // a 24 h view look like it covered the whole day — external review, P2)
+  const allKeys = [...rows.keys()].sort((a, b) => b - a);
+  const shown = allKeys.slice(0, 240);
   const tb = el("tbody");
-  for (const k of keys) {
+  for (const k of shown) {
     const r = rows.get(k);
     tb.append(el("tr", {}, el("td", {}, hhmm(k)), el("td", {}, fmt1(r[0])), el("td", {}, fmt1(r[1])),
       el("td", {}, r[2] == null ? "–" : onOff(r[2])), el("td", {}, r[3] == null ? "–" : onOff(r[3]))));
   }
-  const tbl = el("table", {}, el("caption", { class: "sr" }, t("tbl.caption")),
+  const cap = el("caption", { class: "sr" }, t("tbl.caption") + (allKeys.length > shown.length
+    ? " " + t("tbl.capped", { n: shown.length, total: allKeys.length }) : ""));
+  const tbl = el("table", {}, cap,
     el("thead", {}, el("tr", {}, el("th", {}, t("tbl.time")), el("th", {}, boxLabel("box_A") + " (%RH)"), el("th", {}, boxLabel("box_B") + " (%RH)"),
       el("th", {}, t("stat.fan") + " A"), el("th", {}, t("stat.fan") + " B"))), tb);
-  wrap.replaceChildren(tbl);
+  const out = [tbl];
+  if (allKeys.length > shown.length) {
+    out.push(el("p", { class: "tbl-note" }, t("tbl.capped", { n: shown.length, total: allKeys.length })));
+  }
+  wrap.replaceChildren(...out);
 }
 
 // ---------- alerts + events ----------
@@ -605,7 +766,7 @@ const ALERT_ICON = { rh_high: ["critical", "warn"], door_open: ["warning", "door
   silica: ["serious", "salt"], reboot: ["warning", "reboot"], sensor_stuck: ["serious", "ice"] };
 function drawLists(st) {
   const ul = $("alerts"); ul.replaceChildren();
-  if (!st.alerts.length) ul.append(el("li", {}, el("span"), el("span", { class: "txt", style: "color:var(--muted)" }, t("alerts.empty")), el("span")));
+  if (!st.alerts.length) ul.append(el("li", { class: "empty" }, icon("ok"), el("span", { class: "txt" }, t("alerts.empty"))));
   for (const a of st.alerts) {
     const [lvl, ico] = ALERT_ICON[a.kind] || ["", "bell"];
     const i = icon(ico); i.style.color = `var(--${lvl || "muted"})`;
@@ -614,7 +775,7 @@ function drawLists(st) {
   }
   const ev = $("events"); ev.replaceChildren();
   const list = (st.events || []).slice(0, 10);
-  if (!list.length) ev.append(el("li", {}, el("span"), el("span", { class: "txt", style: "color:var(--muted)" }, t("events.empty")), el("span")));
+  if (!list.length) ev.append(el("li", { class: "empty" }, icon("ok"), el("span", { class: "txt" }, t("events.empty"))));
   for (const e of list) {
     let ico = "fan", text;
     const box = e.box ? boxLabel(e.box) : "";
@@ -633,9 +794,14 @@ function drawLists(st) {
 // ---------- render + polling ----------
 function render(st) {
   $("cards").replaceChildren(...BOXES.map((b) => boxCard(b, st.boxes[b[0]], st)), systemCard(st));
-  $("legend").replaceChildren(...BOXES.map(([id, color]) => el("span", {}, el("span", { class: "key", style: `background:var(${color})` }), boxLabel(id))),
-    el("span", {}, el("span", { class: "key", style: "background:var(--axis);height:2px;width:14px;border-radius:1px" }), t("legend.thr")));
+  // drawChart first: it computes geom.bucketMs, which the legend hint reports
   drawChart(st); drawTable(st); drawLists(st);
+  const legend = [...BOXES.map(([id, color]) => el("span", {}, el("span", { class: "key", style: `background:var(${color})` }), boxLabel(id))),
+    el("span", {}, el("span", { class: "key", style: "background:var(--axis);height:2px;width:14px;border-radius:1px" }), t("legend.thr"))];
+  // say so in the legend, not only in the tooltip, when the plot is aggregated (review v2: on mobile a
+  // reader may never hover, so the averaging would be invisible)
+  if (geom && geom.bucketMs) legend.push(el("span", { class: "agg-hint" }, t("legend.agg", { m: geom.bucketMs / 60000 })));
+  $("legend").replaceChildren(...legend);
   const bargs = st.banner_args || {};
   const btext = st.banner || (st.banner_key ? t("banner." + st.banner_key, { dur: dur((bargs.mins || 0) * 60000), last: bargs.last || "" }) : "");
   const b = $("banner"); b.hidden = !btext; b.replaceChildren(icon("warn"), btext);
@@ -647,7 +813,8 @@ function render(st) {
 }
 function setConn(ok, text) {
   const p = $("conn"); p.replaceChildren(el("span", { class: "dot " + (ok ? "live" : "dead") }), el("span", {}, text));
-  $("main").classList.toggle("stale", !ok);
+  // deliberately no class toggle on #main: stale state is communicated by this pill, the banner and
+  // the per-card badges — dimming the whole board hurt readability for no extra information
 }
 async function poll() {
   try {

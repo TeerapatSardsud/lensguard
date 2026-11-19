@@ -121,7 +121,10 @@ class Dashboard:
         if stale_s < STALE_BANNER_S:
             return "", {}, ""
         last_local = time.strftime("%d/%m %H:%M", time.localtime(self.last_rx_ms / 1000))
-        return "stale", {"mins": int(stale_s // 60), "last": last_local}, ""
+        # mirror the page's Math.round (floor(x+0.5)), and round rather than floor: the cards phrase the
+        # same age with ago(), so flooring here printed "no new data for 14 minutes" beside
+        # "last known 15 min ago" for the same record
+        return "stale", {"mins": int(stale_s / 60 + 0.5), "last": last_local}, ""
 
     def snapshot(self, range_min=360):
         now = int(time.time() * 1000)
