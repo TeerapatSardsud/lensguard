@@ -66,6 +66,7 @@
 #define WIFI_REBEGIN_MS    (5UL * 60 * 1000)       // Wi-Fi down this long -> full WiFi.begin() again
 #define MQTT_RESTART_MS    (15UL * 60 * 1000)      // Wi-Fi up but MQTT failing this long -> reboot
                                                    // (stuck TLS/network stack; buffered records are lost)
+#define NTP_RESYNC_MS      (15UL * 60 * 1000)      // re-issue SNTP periodically (Nov 17: one-shot sync stopped renewing, clock free-ran ~15x fast)
 
 // Sensor nodes the gateway tracks (fan + last RH per box). Index = position in this list.
 #define NODE_IDS         { "box_A", "box_B" }
