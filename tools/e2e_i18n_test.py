@@ -203,6 +203,49 @@ def main():
         page.locator("#range button:has-text('6 ชม.')").click()
         page.wait_for_timeout(600)
 
+        # palette contract: semantic chart lines must outrank decorative gridlines, and every text
+        # colour must clear WCAG AA. Measured on the real cascade (color-mix included), so a theme
+        # tweak that dims a threshold or a label fails here instead of in a projector room.
+        contrast = page.evaluate("""(() => {
+          const cv = document.createElement('canvas'); cv.width = cv.height = 1;
+          const ctx = cv.getContext('2d', {willReadFrequently: true});
+          const toRGB = (c) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = '#000'; ctx.fillStyle = c;
+            ctx.fillRect(0, 0, 1, 1); const d = ctx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2]]; };
+          const lum = ([r, g, b]) => { const f = v => { v /= 255; return v <= .03928 ? v / 12.92
+            : Math.pow((v + .055) / 1.055, 2.4); }; return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); };
+          const ratio = (f, b) => { const a = lum(toRGB(f)), c = lum(toRGB(b));
+            return (Math.max(a, c) + .05) / (Math.min(a, c) + .05); };
+          const bgOf = (e) => { let n = e, bg = getComputedStyle(n).backgroundColor;
+            while ((bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') && n.parentElement) {
+              n = n.parentElement; bg = getComputedStyle(n).backgroundColor; } return bg; };
+          const cardBg = bgOf(document.querySelector('.card'));
+          const g = (sel, prop) => { const e = document.querySelector(sel); return e ? getComputedStyle(e)[prop] : null; };
+          const badge = document.querySelector('.state.critical');
+          return {
+            thr: ratio(g('#chart line[stroke-dasharray]', 'stroke'), cardBg),
+            grid: ratio(g('#chart line', 'stroke'), cardBg),
+            series: ratio(g('#chart path', 'stroke'), cardBg),
+            badge: badge ? ratio(getComputedStyle(badge).color, bgOf(badge)) : 0,
+            note: ratio(g('.gw-note', 'color'), cardBg),
+            foot: ratio(g('.foot', 'color'), bgOf(document.querySelector('.foot'))),
+            stale: ratio(g('.card.off .hero .num', 'color'), cardBg),
+            bar: ratio(getComputedStyle(document.querySelector('.bar')).color,
+                       getComputedStyle(document.querySelector('.bar')).backgroundColor),
+          };
+        })()""")
+        check("threshold lines are more visible than gridlines",
+              contrast["thr"] > contrast["grid"] * 2, f"thr={contrast['thr']:.2f} grid={contrast['grid']:.2f}")
+        check("threshold lines meet 3:1 against the card",
+              contrast["thr"] >= 3.0, f"{contrast['thr']:.2f}:1")
+        check("chart series meet 3:1 against the card",
+              contrast["series"] >= 3.0, f"{contrast['series']:.2f}:1")
+        for label, val, target in (("status badge", contrast["badge"], 4.5),
+                                   ("gateway note", contrast["note"], 4.5),
+                                   ("footer", contrast["foot"], 4.5),
+                                   ("stale headline number", contrast["stale"], 4.5),
+                                   ("app bar text", contrast["bar"], 4.5)):
+            check(f"{label} meets {target}:1 contrast", val >= target, f"{val:.2f}:1")
+
         page.locator("#langBtn").click()
         page.wait_for_timeout(600)
         body_en = page.locator("body").inner_text()

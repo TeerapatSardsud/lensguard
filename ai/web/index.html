@@ -8,39 +8,44 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Noto+Sans+Thai:wght@400;500;600&display=swap">
 <style>
-/* Layout: blue app bar -> 1 Overview (Box A, Box B, Gateway) -> 2 Humidity chart -> 3 Alerts | Events.
-   Palette follows Facebook's light blue theme; fonts are loopless Thai (Prompt for numbers/headings, Noto Sans Thai for text). */
+/* Layout: black app bar -> 1 Overview (Box A, Box B, Gateway) -> 2 Humidity chart -> 3 Alerts | Events.
+   Neutral warm ground with a near-black app bar carries the chrome; blue is reserved as the accent for
+   controls and the Box A series, so colour always means something. Fonts are loopless Thai (Prompt for
+   numbers/headings, Noto Sans Thai for text). */
 :root {
   color-scheme: light;
-  --bg: #f0f2f5; --surface: #ffffff; --surface-2: #f0f2f5; --line: #e4e6eb;
-  --ink: #050505; --ink-2: #65676b; --muted: #8a8d91;
-  --blue: #1877f2; --blue-ink: #ffffff; --blue-soft: #e7f0fd;
-  --s1: #1877f2; --s2: #eb6834;
-  --good: #31a24c; --warning: #d9960a; --serious: #e8692b; --critical: #e41e3f;
-  --grid: #e4e6eb; --axis: #ced0d4;
-  --r: 12px; --shadow: 0 1px 2px rgba(0,0,0,.08);
+  --bg: #f4f4f1; --surface: #ffffff; --surface-2: #efeee8; --line: #e2e1d9;
+  --ink: #0b0b0b; --ink-2: #4a4a45; --muted: #6b6b64;
+  --bar: #141618; --bar-ink: #ffffff;
+  --blue: #1f6fd0; --blue-ink: #ffffff; --blue-soft: #e8eef8;
+  --s1: #1f6fd0; --s2: #d95f26;
+  --good: #0f8a2f; --warning: #a8730a; --serious: #c2521c; --critical: #c62828;
+  --grid: #e2e1d9; --axis: #9a998f; --thr: #8a897f; --track: #ecebe4;
+  --r: 14px; --shadow: 0 1px 2px rgba(0,0,0,.06);
   --display: "Prompt", "Noto Sans Thai", system-ui, sans-serif;
   --text: "Noto Sans Thai", "Prompt", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --bg: #18191a; --surface: #242526; --surface-2: #3a3b3c; --line: #3e4042;
-    --ink: #e4e6eb; --ink-2: #b0b3b8; --muted: #8a8d91;
-    --blue: #2d88ff; --blue-ink: #ffffff; --blue-soft: #263951;
-    --s1: #4599ff; --s2: #e8692b;
-    --good: #45bd62; --warning: #f7b928; --serious: #f0803c; --critical: #f3425f;
-    --grid: #3e4042; --axis: #4e5052; --shadow: 0 1px 2px rgba(0,0,0,.4);
+    --bg: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --line: #2c2c2a;
+    --ink: #f2f1ed; --ink-2: #cfcec8; --muted: #a5a49d;
+    --bar: #0a0b0c; --bar-ink: #ffffff;
+    --blue: #4599ff; --blue-ink: #0d0d0d; --blue-soft: #1b2b3d;
+    --s1: #4599ff; --s2: #ef7f45;
+    --good: #45bd62; --warning: #f7b928; --serious: #f0803c; --critical: #ff6b6b;
+    --grid: #2c2c2a; --axis: #7a7972; --thr: #8f8e86; --track: #242422; --shadow: 0 1px 2px rgba(0,0,0,.4);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #18191a; --surface: #242526; --surface-2: #3a3b3c; --line: #3e4042;
-  --ink: #e4e6eb; --ink-2: #b0b3b8; --muted: #8a8d91;
-  --blue: #2d88ff; --blue-ink: #ffffff; --blue-soft: #263951;
-  --s1: #4599ff; --s2: #e8692b;
-  --good: #45bd62; --warning: #f7b928; --serious: #f0803c; --critical: #f3425f;
-  --grid: #3e4042; --axis: #4e5052; --shadow: 0 1px 2px rgba(0,0,0,.4);
+  --bg: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --line: #2c2c2a;
+  --ink: #f2f1ed; --ink-2: #cfcec8; --muted: #a5a49d;
+  --bar: #0a0b0c; --bar-ink: #ffffff;
+  --blue: #4599ff; --blue-ink: #0d0d0d; --blue-soft: #1b2b3d;
+  --s1: #4599ff; --s2: #ef7f45;
+  --good: #45bd62; --warning: #f7b928; --serious: #f0803c; --critical: #ff6b6b;
+  --grid: #2c2c2a; --axis: #7a7972; --thr: #8f8e86; --track: #242422; --shadow: 0 1px 2px rgba(0,0,0,.4);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -50,15 +55,15 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 button:focus-visible, .chart:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 /* app bar */
-.bar { background: var(--blue); color: var(--blue-ink); box-shadow: var(--shadow); position: sticky; top: 0; z-index: 5; }
+.bar { background: var(--bar); color: var(--bar-ink); box-shadow: var(--shadow); position: sticky; top: 0; z-index: 5; }
 .bar .in { max-width: 1120px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; min-width: 0; flex: none; }
-.logo { width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.18); display: grid; place-items: center; flex: none; }
-.brand h1 { font-size: 19px; line-height: 1.1; color: var(--blue-ink); }
-.brand p { margin: 0; font-size: 12px; opacity: .85; }
+.logo { width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.14); display: grid; place-items: center; flex: none; }
+.brand h1 { font-size: 19px; line-height: 1.1; color: var(--bar-ink); }
+.brand p { margin: 0; font-size: 12px; opacity: .75; }
 .pill { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; font-size: 13px;
-  background: rgba(255,255,255,.16); color: var(--blue-ink); white-space: nowrap; }
-.pill.btn:hover { background: rgba(255,255,255,.26); }
+  background: rgba(255,255,255,.12); color: var(--bar-ink); white-space: nowrap; }
+.pill.btn:hover { background: rgba(255,255,255,.22); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.6); flex: none; }
 .dot.live { background: #7ee787; } .dot.dead { background: #ffb3b3; }
 .dot.on { background: var(--good); } .dot.off { background: var(--critical); }
@@ -70,11 +75,11 @@ button:focus-visible, .chart:focus-visible { outline: 2px solid var(--blue); out
   border-radius: var(--r); padding: 10px 14px; font-size: 14px; display: flex; gap: 10px; align-items: center; }
 .banner[hidden] { display: none; }   /* .banner's display:flex overrides the hidden attribute without this */
 main { display: grid; gap: 24px; transition: opacity .2s; }
-main.stale { opacity: .55; }
+main.stale { opacity: .78; }   /* stale must stay readable — the banner + badges carry the warning, not dimming */
 section > .sec { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
 .sec h2 { font-size: 17px; }
 .sec .hint { font-size: 13px; color: var(--ink-2); }
-.card { background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); padding: 18px 20px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: 18px 20px; min-width: 0; }
 .card h3 { font-size: 15px; display: flex; align-items: center; gap: 8px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .key { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
@@ -88,7 +93,7 @@ section > .sec { display: flex; align-items: baseline; justify-content: space-be
 .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 14px 0 16px; flex-wrap: wrap; }
 .hero .num { font-size: 56px; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .hero .unit { font-size: 16px; color: var(--ink-2); margin-left: 4px; font-family: var(--text); font-weight: 500; }
-.card.off .hero .num { color: var(--muted); }
+.card.off .hero .num { color: var(--ink-2); }   /* stale but still the headline reading — do not grey it out */
 .state { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; font-size: 13px; font-weight: 500;
   background: var(--surface-2); color: var(--ink); max-width: 100%; }
 .state svg { width: 15px; height: 15px; flex: none; }
@@ -121,8 +126,9 @@ section > .sec { display: flex; align-items: baseline; justify-content: space-be
 .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .seg { display: inline-flex; background: var(--surface-2); border-radius: 8px; padding: 3px; }
 .seg button { padding: 5px 14px; border-radius: 6px; font-size: 13px; color: var(--ink-2); font-weight: 500; }
-.seg button[aria-pressed="true"] { background: var(--surface); color: var(--blue); box-shadow: var(--shadow); }
-.tbtn { padding: 6px 12px; border-radius: 8px; font-size: 13px; color: var(--blue); background: var(--blue-soft); font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--blue); box-shadow: var(--shadow); border: 1px solid var(--line); font-weight: 600; }
+.tbtn { padding: 6px 12px; border-radius: 8px; font-size: 13px; color: var(--ink); background: var(--surface-2); font-weight: 500; border: 1px solid var(--line); }
+.tbtn:hover { background: var(--line); }
 .chart-card { position: relative; }
 .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); margin-bottom: 4px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -499,7 +505,7 @@ function drawChart(st) {
   }
   for (const [v, label] of [[th.alert, t("thr.alert")], [th.fan_on, t("thr.fan_on")], [th.fan_off, t("thr.fan_off")]]) {
     if (v < lo || v > hi) continue;
-    svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--axis"), "stroke-width": 1, "stroke-dasharray": "4 4" }));
+    svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--thr"), "stroke-width": 1, "stroke-dasharray": "5 4" }));
     svg.append(s("text", { class: "thr", x: m.l + 6, y: Y(v) - 4 }, `${v}% ${label}`));
   }
   const plotW = W - m.l - m.r;
@@ -530,7 +536,7 @@ function drawChart(st) {
   series.forEach((se, i) => {
     const y = stripTop + i * (rowH + rowGap);
     svg.append(s("text", { x: m.l - 8, y: y + rowH - 1, "text-anchor": "end" }, t("stat.fan") + " " + se.name.slice(-1)));
-    svg.append(s("rect", { x: m.l, y, width: W - m.l - m.r, height: rowH, rx: 3, fill: css("--surface-2") }));
+    svg.append(s("rect", { x: m.l, y, width: W - m.l - m.r, height: rowH, rx: 3, fill: css("--track") }));
     let start = null;
     const flush = (end) => { if (start != null) svg.append(s("rect", { x: X(start), y, width: Math.max(2, X(end) - X(start)), height: rowH, rx: 3, fill: se.color, opacity: 0.85 })); start = null; };
     se.pts.forEach((p, j) => {
