@@ -55,6 +55,11 @@ jobs:
         run: python ai/service.py --selftest
       - name: Simulator output
         run: python tools/mqtt_simulator.py --dry-run --count 3
+      - name: Dashboard i18n + stale-state browser test
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+          python tools/e2e_i18n_test.py
       - name: No secrets committed
         run: |
           ! git ls-files | grep -E '(^|/)secrets\.h$|(^|/)\.env$|\.pem$|\.key$'
