@@ -258,8 +258,17 @@ def main():
         })()""")
         check("stale feed shades the missing interval on the chart",
               len(gap["labels"]) == 1 and gap["rects"] == 1, str(gap))
-        check("gap is labelled with the last reading time", "12:" in gap["labels"][0] or "•" in gap["labels"][0],
-              str(gap["labels"]))
+        # compare against the series' own last timestamp, not a hardcoded hour: the earlier version
+        # asserted "12:" which passed in Bangkok and failed on a UTC runner at 05:46
+        gap_ok = page.evaluate("""(() => {
+          const label = (document.querySelector('#chart text.gap') || {}).textContent || '';
+          const s = state.boxes.box_A.series;
+          const last = s[s.length - 1][0];
+          const hh = new Date(last).toLocaleTimeString(lang === 'th' ? 'th-TH' : 'en-GB',
+            {hour: '2-digit', minute: '2-digit', hour12: false});
+          return { label, hh, matches: label.includes(hh) };
+        })()""")
+        check("gap is labelled with the last reading time", gap_ok["matches"], str(gap_ok))
 
         # P1: no global dimming — stale state must stay at full contrast
         check("stale state does not dim the whole board",
