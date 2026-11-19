@@ -133,6 +133,7 @@ section > .sec { display: flex; align-items: baseline; justify-content: space-be
 .chart-card { position: relative; }
 .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); margin-bottom: 4px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend .agg-hint { color: var(--ink-2); font-style: italic; }
 .chart { width: 100%; display: block; margin-top: 6px; touch-action: pan-y; }
 .chart text { font-size: 11px; fill: var(--ink-2); font-variant-numeric: tabular-nums; font-family: var(--text); }
 .chart .end { fill: var(--ink); font-size: 12px; font-weight: 600; }
@@ -513,6 +514,32 @@ function drawChart(st) {
   const Y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * plotH;
   const plotW = W - m.l - m.r;
 
+  // Clip a raw series to the visible window [x0, x1], interpolating the crossing point so the path
+  // never starts/ends outside the plot. Without this the polyline ran under the "พัดลม A/B" labels and
+  // past the left gutter (external review v2, P1).
+  const clipPts = (pts) => {
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i], next = pts[i + 1], prev = pts[i - 1];
+      if (p[0] < x0) {
+        if (next && next[0] >= x0) {
+          const f = (x0 - p[0]) / (next[0] - p[0]);
+          out.push([x0, p[1] + (next[1] - p[1]) * f, p[2]]);
+        }
+        continue;
+      }
+      if (p[0] > x1) {
+        if (prev && prev[0] <= x1) {
+          const f = (x1 - prev[0]) / (p[0] - prev[0]);
+          out.push([x1, prev[1] + (p[1] - prev[1]) * f, prev[2]]);
+        }
+        break;
+      }
+      out.push(p);
+    }
+    return out;
+  };
+
   // Resolution-aware aggregation: raw readings are only honest at short ranges. With one 1-min point
   // per ~1.4px at 24 h, plotting every reading produced a solid waveform (external review, P1), so
   // bucket to a pixel-legible width and draw a min-max band under the mean so spikes stay visible.
@@ -523,25 +550,41 @@ function drawChart(st) {
     return (steps.find((k) => perMinPx * k >= 2.2) || 60) * 60000;
   })();
   const bucket = (pts) => {
-    if (!BUCKET_MS) return { pts: pts.map((p) => [p[0], p[1], p[2]]), band: [], step: 0 };
+    if (!BUCKET_MS) return { pts: pts.map((p) => [p[0], p[1], p[2], null]), band: [], step: 0 };
     const out = [], band = [];
-    let key = null, sum = 0, n = 0, mn = 0, mx = 0, fan = 0;
+    let key = null, sum = 0, sumT = 0, n = 0, mn = 0, mx = 0, fan = 0;
     const flush = () => {
       if (!n) return;
-      out.push([key, sum / n, fan > n / 2 ? 1 : 0]);
-      if (mn !== mx) band.push([key, mn, mx]);
-      n = 0; sum = 0;
+      // the plotted point sits at the MEAN timestamp of its observations, not the bucket's left edge:
+      // anchoring to the edge shifted every average up to half a bucket earlier (review v2, P2)
+      out.push([sumT / n, sum / n, fan > n / 2 ? 1 : 0, key]);
+      if (mn !== mx) band.push([key, mn, mx]);     // envelope keeps bucket boundaries, per the review
+      n = 0; sum = 0; sumT = 0;
     };
     for (const p of pts) {
       const k = Math.floor(p[0] / BUCKET_MS) * BUCKET_MS;
       if (k !== key) { flush(); key = k; mn = p[1]; mx = p[1]; fan = 0; }
-      sum += p[1]; n++; if (p[1] < mn) mn = p[1]; if (p[1] > mx) mx = p[1]; if (p[2]) fan++;
+      sum += p[1]; sumT += p[0]; n++;
+      if (p[1] < mn) mn = p[1]; if (p[1] > mx) mx = p[1];
+      if (p[2]) fan++;
     }
     flush();
     return { pts: out, band, step: BUCKET_MS / 60000 };
   };
-  const agg = series.map((se) => ({ ...se, ...bucket(se.pts) }));
-  const aggStep = BUCKET_MS ? BUCKET_MS / 60000 : 0;
+  const agg = series.map((se) => ({ ...se, ...bucket(clipPts(se.pts)) }));
+  // a missing interval is a discontinuity: consecutive readings further apart than this must not be
+  // joined, or a comms outage is drawn as continuous measurement (review v2, P2)
+  const GAP_MS = BUCKET_MS ? BUCKET_MS * 1.5 : 180000;
+  const runs = (arr) => {
+    const out = [];
+    let cur = [];
+    for (const item of arr) {
+      if (cur.length && item[0] - cur[cur.length - 1][0] > GAP_MS) { out.push(cur); cur = []; }
+      cur.push(item);
+    }
+    if (cur.length) out.push(cur);
+    return out;
+  };
 
   for (let v = Math.ceil(lo / 10) * 10; v <= hi; v += 10) {
     svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--grid"), "stroke-width": 1 }));
@@ -569,22 +612,26 @@ function drawChart(st) {
   }
   svg.append(s("line", { x1: m.l, x2: W - m.r, y1: m.t + plotH, y2: m.t + plotH, stroke: css("--axis"), "stroke-width": 1 }));
 
+  // bucket keys are floor-aligned, so the first key can sit just left of x0; clamp the drawn coordinate
+  // to the plot box or the band bleeds into the gutter by a pixel
+  const XC = (t) => Math.max(m.l, Math.min(W - m.r, X(t)));
+
   for (const se of agg) {
-    if (se.band.length) {
-      // min–max envelope first, so the mean line stays the crispest thing in the plot
-      let up = "", down = [];
-      for (const [k, mn, mx] of se.band) up += (up ? "L" : "M") + X(k).toFixed(1) + " " + Y(mx).toFixed(1);
-      for (let i = se.band.length - 1; i >= 0; i--) {
-        const [k, mn] = se.band[i]; down.push("L" + X(k).toFixed(1) + " " + Y(mn).toFixed(1));
-      }
-      svg.append(s("path", { d: up + down.join("") + "Z", fill: se.color, "fill-opacity": 0.16, stroke: "none" }));
+    // envelope + mean line, drawn per continuous run so an outage is never bridged by a solid band
+    const bandRuns = runs(se.band);
+    for (const run of bandRuns) {
+      if (run.length < 2) continue;
+      let up = "";
+      for (const [k, , mx] of run) up += (up ? "L" : "M") + XC(k).toFixed(1) + " " + Y(mx).toFixed(1);
+      let down = "";
+      for (let i = run.length - 1; i >= 0; i--) down += "L" + XC(run[i][0]).toFixed(1) + " " + Y(run[i][1]).toFixed(1);
+      svg.append(s("path", { d: up + down + "Z", fill: se.color, "fill-opacity": 0.16, stroke: "none" }));
     }
-    let d = "", prev = null;
-    for (const p of se.pts) {
-      d += (prev && p[0] - prev[0] <= Math.max(180000, (BUCKET_MS || 0) * 2.5) ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1);
-      prev = p;
+    for (const run of runs(se.pts)) {
+      let d = "";
+      for (const p of run) d += (d ? "L" : "M") + XC(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1);
+      svg.append(s("path", { d, fill: "none", stroke: se.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
     }
-    svg.append(s("path", { d, fill: "none", stroke: se.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
   }
   const ends = agg.filter((se) => se.pts.length).map((se) => ({ se, p: se.pts[se.pts.length - 1], y: Y(se.pts[se.pts.length - 1][1]) }));
   if (ends.length === 2 && Math.abs(ends[0].y - ends[1].y) < 16) {
@@ -606,11 +653,18 @@ function drawChart(st) {
     svg.append(s("text", { x: m.l - (W < 480 ? 6 : 8), y: y + rowH - 1, "text-anchor": "end" }, stripLabel));
     svg.append(s("rect", { x: m.l, y, width: W - m.l - m.r, height: rowH, rx: 3, fill: css("--track") }));
     let start = null;
-    const flush = (end) => { if (start != null) svg.append(s("rect", { x: X(start), y, width: Math.max(2, X(end) - X(start)), height: rowH, rx: 3, fill: se.color, opacity: 0.85 })); start = null; };
-    se.pts.forEach((p, j) => {          // raw points: bucket-averaging would swallow short fan pulses
+    // clip each fan interval to the plot: an interval that began before x0 was drawing left under the
+    // "พัดลม A/B" label (measured: rect x=10.6 vs plot left 48 at 6 h) — review v2, P1
+    const flush = (end) => {
+      if (start == null) return;
+      const vs = Math.max(start, x0), ve = Math.min(end, x1);
+      if (ve > vs) svg.append(s("rect", { x: X(vs), y, width: Math.max(2, X(ve) - X(vs)), height: rowH, rx: 3, fill: se.color, opacity: 0.85 }));
+      start = null;
+    };
+    clipPts(se.pts).forEach((p, j, arr) => {   // raw points: bucket-averaging would swallow short fan pulses
       if (p[2] && start == null) start = p[0];
       if (!p[2] && start != null) flush(p[0]);
-      if (j === se.pts.length - 1) flush(p[0] + 60000);
+      if (j === arr.length - 1) flush(p[0] + 60000);
     });
   });
   const cross = s("line", { y1: m.t, y2: stripTop + 2 * rowH + rowGap, stroke: css("--ink-2"), "stroke-width": 1, visibility: "hidden" });
@@ -642,14 +696,16 @@ function showAt(cursorMs) {
   const bucketMs = geom.bucketMs || 0;
   const tip = $("tip");
   tip.replaceChildren(el("div", { class: "t" }, bucketMs
-    ? `${hhmm(ts)}–${hhmm(ts + bucketMs)} · ${t("legend.agg", { m: bucketMs / 60000 })}`
+    ? `${hhmm(Math.floor(ts / bucketMs) * bucketMs)}–${hhmm(Math.floor(ts / bucketMs) * bucketMs + bucketMs)} · ${t("legend.agg", { m: bucketMs / 60000 })}`
     : hhmm(ts)));
   geom.cross.setAttribute("x1", geom.X(ts)); geom.cross.setAttribute("x2", geom.X(ts)); geom.cross.setAttribute("visibility", "visible");
   geom.series.forEach((se, i) => {
     const p = nearest(se.pts, ts, bucketMs), dot = geom.dots[i];
     if (p) { dot.setAttribute("cx", geom.X(p[0])); dot.setAttribute("cy", geom.Y(p[1])); dot.setAttribute("visibility", "visible"); }
     else dot.setAttribute("visibility", "hidden");
-    const span = p && bucketMs ? ` (${fmt1(se.band.find((b) => b[0] === p[0])?.[1] ?? p[1])}–${fmt1(se.band.find((b) => b[0] === p[0])?.[2] ?? p[1])})` : "";
+    const span = p && bucketMs
+      ? (() => { const b = se.band.find((x) => x[0] === p[3]); return b ? ` (${fmt1(b[1])}–${fmt1(b[2])})` : ""; })()
+      : "";
     tip.append(el("div", { class: "r" }, el("span", { class: "k", style: `background:${se.color}` }),
       el("b", {}, p ? fmt1(p[1]) + "%" + span : "–"),
       el("span", {}, se.name + (p ? " · " + t("stat.fan") + " " + onOff(p[2]) : ""))));
@@ -738,9 +794,14 @@ function drawLists(st) {
 // ---------- render + polling ----------
 function render(st) {
   $("cards").replaceChildren(...BOXES.map((b) => boxCard(b, st.boxes[b[0]], st)), systemCard(st));
-  $("legend").replaceChildren(...BOXES.map(([id, color]) => el("span", {}, el("span", { class: "key", style: `background:var(${color})` }), boxLabel(id))),
-    el("span", {}, el("span", { class: "key", style: "background:var(--axis);height:2px;width:14px;border-radius:1px" }), t("legend.thr")));
+  // drawChart first: it computes geom.bucketMs, which the legend hint reports
   drawChart(st); drawTable(st); drawLists(st);
+  const legend = [...BOXES.map(([id, color]) => el("span", {}, el("span", { class: "key", style: `background:var(${color})` }), boxLabel(id))),
+    el("span", {}, el("span", { class: "key", style: "background:var(--axis);height:2px;width:14px;border-radius:1px" }), t("legend.thr"))];
+  // say so in the legend, not only in the tooltip, when the plot is aggregated (review v2: on mobile a
+  // reader may never hover, so the averaging would be invisible)
+  if (geom && geom.bucketMs) legend.push(el("span", { class: "agg-hint" }, t("legend.agg", { m: geom.bucketMs / 60000 })));
+  $("legend").replaceChildren(...legend);
   const bargs = st.banner_args || {};
   const btext = st.banner || (st.banner_key ? t("banner." + st.banner_key, { dur: dur((bargs.mins || 0) * 60000), last: bargs.last || "" }) : "");
   const b = $("banner"); b.hidden = !btext; b.replaceChildren(icon("warn"), btext);

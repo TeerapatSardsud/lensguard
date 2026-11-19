@@ -282,6 +282,74 @@ def main():
         page.locator("#range button:has-text('6 ชม.')").click()
         page.wait_for_timeout(700)
 
+        # P1 (v2): nothing may be drawn outside the plot box — the fan bars used to extend left under the
+        # "พัดลม A/B" labels (measured rect x=10.6 vs plot left 48) and the series started at x=-181
+        for label in ("1 ชม.", "6 ชม.", "24 ชม."):
+            page.locator(f"#range button:has-text('{label}')").click()
+            page.wait_for_timeout(800)
+            clip = page.evaluate("""(() => {
+              const svg = document.getElementById('chart'), L = geom.m.l, R = geom.W - geom.m.r;
+              const fan = [...svg.querySelectorAll('rect')].filter(r => r.getAttribute('opacity') === '0.85')
+                .map(r => ({x: +r.getAttribute('x'), w: +r.getAttribute('width')}));
+              const paths = [...svg.querySelectorAll('path')].map(p => { const b = p.getBBox();
+                return {x: b.x, right: b.x + b.width}; });
+              return {
+                fanOut: fan.filter(o => o.x < L - 0.5 || o.x + o.w > R + 0.5).length,
+                pathOut: paths.filter(o => o.x < L - 0.5 || o.right > R + 0.5).length,
+                plot: [L, R],
+              };
+            })()""")
+            check(f"no fan bar is drawn outside the plot at {label}",
+                  clip["fanOut"] == 0, f"fanOut={clip['fanOut']} plot={clip['plot']}")
+            check(f"no series path is drawn outside the plot at {label}",
+                  clip["pathOut"] == 0, f"pathOut={clip['pathOut']} plot={clip['plot']}")
+
+        # P2 (v2): aggregated points sit at the MEAN timestamp of their bucket, not at its left edge
+        agg_ts = page.evaluate("""(() => {
+          const B = geom.bucketMs, now = Date.now();
+          const inside = geom.series[0].pts.filter(p => p[3] != null);
+          const offs = inside.slice(-40).map(p => (p[0] - p[3]) / 60000);
+          return { bucket: B / 60000, n: inside.length,
+                   minOff: +Math.min(...offs).toFixed(2), maxOff: +Math.max(...offs).toFixed(2),
+                   anyOnEdge: offs.filter(o => o === 0).length };
+        })()""")
+        check("aggregated points are timestamped inside their bucket, not on its edge",
+              agg_ts["n"] > 0 and agg_ts["maxOff"] > 0 and agg_ts["maxOff"] <= agg_ts["bucket"] + 0.01,
+              str(agg_ts))
+
+        # P2 (v2): a missing interval must break the line/envelope instead of being bridged
+        hole = page.evaluate("""(() => {
+          const now = Date.now(), hs = now - 9 * 3600e3, he = now - 7 * 3600e3;
+          for (const k of ['box_A', 'box_B'])
+            state.boxes[k].series = state.boxes[k].series.filter(p => p[0] < hs || p[0] > he);
+          render(state);
+          const svg = document.getElementById('chart');
+          const lines = [...svg.querySelectorAll('path[stroke-width="2"]')]
+            .map(p => { const b = p.getBBox(); return {x: b.x, right: b.x + b.width}; });
+          const left = geom.X(geom.x1 - 9 * 3600e3), right = geom.X(geom.x1 - 7 * 3600e3);
+          return { paths: lines.length,
+                   bridging: lines.filter(o => o.x < left && o.right > right).length };
+        })()""")
+        check("a data gap splits the series instead of being bridged",
+              hole["paths"] >= 4 and hole["bridging"] == 0, str(hole))
+        # restore the fixture for the checks that follow
+        page.reload(wait_until="networkidle")
+        page.wait_for_timeout(700)
+        page.locator("#range button:has-text('6 ชม.')").click()
+        page.wait_for_timeout(700)
+        page.locator("#langBtn").click()
+        page.wait_for_timeout(600)
+        page.locator("#langBtn").click()
+        page.wait_for_timeout(500)
+
+        page.locator("#range button:has-text('24 ชม.')").click()
+        page.wait_for_timeout(800)
+        check("aggregation is disclosed in the legend, not only the tooltip",
+              page.locator(".legend .agg-hint").count() == 1,
+              page.locator(".legend .agg-hint").inner_text() if page.locator(".legend .agg-hint").count() else "missing")
+        page.locator("#range button:has-text('6 ชม.')").click()
+        page.wait_for_timeout(700)
+
         # palette contract: semantic chart lines must outrank decorative gridlines, and every text
         # colour must clear WCAG AA. Measured on the real cascade (color-mix included), so a theme
         # tweak that dims a threshold or a label fails here instead of in a projector room.
