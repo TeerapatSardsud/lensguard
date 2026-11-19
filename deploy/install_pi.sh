@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # One-shot setup of the LensGuard AI service on a Raspberry Pi (64-bit Raspberry Pi OS, Python 3.11).
-# Run from the repo root on the Pi:   bash deploy/install_pi.sh
+# Run from the repo root on the Pi as the NORMAL user (apt/systemd steps sudo themselves):
+#   bash deploy/install_pi.sh
+# Running it via sudo also works — files are still owned by the real user (SUDO_USER).
 # Safe to run again after `git pull` (it only re-installs what changed and restarts the service).
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
+# The account the service will run as: plain run -> $USER; via sudo -> the human behind SUDO_USER.
+OWNER="${SUDO_USER:-$USER}"
 
 echo "== 1/5 system packages"
 sudo apt-get update -qq
@@ -34,7 +38,12 @@ fi
 .venv/bin/python ai/service.py --selftest >/dev/null && echo "   selftest ok"
 
 echo "== 5/5 systemd service"
-sed -e "s|__USER__|$USER|g" -e "s|__REPO__|$REPO|g" deploy/lensguard-ai.service | sudo tee /etc/systemd/system/lensguard-ai.service >/dev/null
+# Installed files must belong to OWNER even when this script itself ran under sudo —
+# otherwise the service (running as OWNER) cannot append live.jsonl or retrain the model.
+if [ "$(id -u)" = "0" ]; then
+  chown -R "$OWNER":"$OWNER" "$REPO"
+fi
+sed -e "s|__USER__|$OWNER|g" -e "s|__REPO__|$REPO|g" deploy/lensguard-ai.service | sudo tee /etc/systemd/system/lensguard-ai.service >/dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable --now lensguard-ai
 sudo systemctl restart lensguard-ai
