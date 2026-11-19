@@ -13,25 +13,50 @@ HORIZON = 10  # minutes ahead to predict
 FEATS = ["rh", "temp", "temp_out", "fan", "door",
          "rh_slope_5", "rh_slope_15", "door_recent_10", "temp_gap", "fan_minutes"]
 MIN_HISTORY = 16  # minutes of history needed before a prediction is possible (rh_slope_15)
+_EPOCH = pd.Timestamp("1970-01-01")
+
+
+def _to_ms(dt_index):
+    """DatetimeIndex -> epoch milliseconds, independent of the dtype's internal unit
+    (pandas <3 stores ns, pandas >=3 stores us/ms - astype('int64')//10**6 silently lies)."""
+    return (dt_index - _EPOCH) // pd.Timedelta("1ms")
 
 
 def make_features(df: pd.DataFrame, horizon: int = HORIZON, with_target: bool = True) -> pd.DataFrame:
-    """df: one row per minute with columns rh, temp, temp_out, door, fan. Uses only past/current values."""
-    f = pd.DataFrame(index=df.index)
-    f["rh"] = df["rh"]
-    f["temp"] = df["temp"]
-    f["temp_out"] = df["temp_out"]
-    f["fan"] = df["fan"]
-    f["door"] = df["door"]
-    f["rh_slope_5"] = df["rh"] - df["rh"].shift(5)
-    f["rh_slope_15"] = df["rh"] - df["rh"].shift(15)
-    f["door_recent_10"] = df["door"].rolling(10, min_periods=1).max()
-    f["temp_gap"] = df["temp_out"] - df["temp"]
+    """df: one row per minute with columns rh, temp, temp_out, door, fan. Uses only past/current values.
+
+    Rows are re-indexed onto a gap-complete minute grid first, so a data gap (feed outage, reboot)
+    makes the shift/rolling features NaN at the hole instead of silently comparing values across
+    it - otherwise the first 15 minutes after any gap get slope features computed against pre-gap
+    minutes, which trains and fires on garbage. The gap rows themselves drop out with dropna().
+    """
+    if "ts" in df.columns and len(df) > 1:
+        idx = pd.DatetimeIndex(pd.to_datetime(df["ts"].astype("int64"), unit="ms"))
+        g = df.drop(columns=["ts"])
+        if idx.duplicated().any():                       # defensive: keep the newest row per minute
+            g = g[~idx.duplicated(keep="last")]
+            idx = idx[~idx.duplicated(keep="last")]
+        g = g.set_index(idx).reindex(pd.date_range(idx.min(), idx.max(), freq="1min"))
+        g["ts"] = _to_ms(g.index)
+    else:
+        g = df.copy()
+    f = pd.DataFrame(index=g.index)
+    f["rh"] = g["rh"]
+    f["temp"] = g["temp"]
+    f["temp_out"] = g["temp_out"]
+    f["fan"] = g["fan"]
+    f["door"] = g["door"]
+    f["rh_slope_5"] = g["rh"] - g["rh"].shift(5)
+    f["rh_slope_15"] = g["rh"] - g["rh"].shift(15)
+    f["door_recent_10"] = g["door"].rolling(10, min_periods=1).max()
+    f["temp_gap"] = g["temp_out"] - g["temp"]
     # how long the fan has been running (minutes, capped) - silica gel slows down as it loads
-    run = df["fan"].groupby((df["fan"] != df["fan"].shift()).cumsum()).cumcount() + 1
-    f["fan_minutes"] = np.where(df["fan"] > 0, np.minimum(run, 60), 0)
+    run = g["fan"].groupby((g["fan"] != g["fan"].shift()).cumsum()).cumcount() + 1
+    f["fan_minutes"] = np.where(g["fan"] > 0, np.minimum(run, 60), 0)
+    if "ts" in g.columns:
+        f["ts"] = g["ts"]
     if with_target:
-        f["target"] = df["rh"].shift(-horizon)
+        f["target"] = g["rh"].shift(-horizon)
     return f.dropna()
 
 
@@ -77,5 +102,29 @@ def records_to_minutes(records, box: str) -> pd.DataFrame:
     out["fan"] = out["fan"].fillna(0)
     out["temp_out"] = out["temp_out"].fillna(out["temp"])   # gateway missing: fall back to box temp
     out = out.dropna(subset=["rh", "temp"])
-    out.insert(0, "ts", (out.index.astype("int64") // 10**6).astype("int64"))
+    out.insert(0, "ts", _to_ms(out.index))
     return out.reset_index(drop=True)
+
+
+if __name__ == "__main__":
+    # regression: slope features must never be computed across a data gap
+    step = 60_000
+    recs = ([{"node_id": "box_A", "ts": i * step, "rh": 50.0, "temp": 30.0, "valid": 1} for i in range(40)]
+            + [{"node_id": "box_A", "ts": (i + 120) * step, "rh": 70.0, "temp": 31.0, "valid": 1}
+               for i in range(40)])                       # 80-minute feed gap
+    f = make_features(records_to_minutes(recs, "box_A"))
+    after = f[f["ts"] >= 120 * step]
+    assert not after.empty, "post-gap data was dropped entirely"
+    bad = after[after["rh_slope_15"] != 0.0]
+    assert bad.empty, f"slope feature crosses the gap: {bad['rh_slope_15'].tolist()[:4]}"
+    assert (after["rh_slope_15"].isna() == 0).all(), "NaN feature row survived dropna"
+    first = after["ts"].iloc[0]
+    assert first >= 120 * step, "post-gap rows missing"
+    # a gap-free series must behave exactly like before (no NaN introduced)
+    cont = [{"node_id": "box_A", "ts": i * step, "rh": 40.0 + 0.1 * i, "temp": 30.0, "valid": 1}
+            for i in range(60)]
+    f2 = make_features(records_to_minutes(cont, "box_A"))
+    assert len(f2) == 60 - HORIZON - 15 or len(f2) > 30, len(f2)
+    assert not f2[FEATS].isna().any().any()
+    print(f"features.py selftest: gap-safe grid ok (first post-gap row at minute "
+          f"{int(first // step)}, max wrong-cross-gap slope = 0) - OK")

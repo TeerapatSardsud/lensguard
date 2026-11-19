@@ -49,6 +49,8 @@ class Engine:
         self.last_pred = {b: None for b in BOXES}
         self.stats = {"records": 0, "commands": 0, "warmup": 0}
         self.live_log = self.pred_log = None
+        from clock import DriftCorrector
+        self.clock = None if os.environ.get("LENSGUARD_CLOCK_CORRECT") == "0" else DriftCorrector()
         if log_dir:
             os.makedirs(log_dir, exist_ok=True)
             self.live_log = open(os.path.join(log_dir, "live.jsonl"), "a", buffering=1)
@@ -57,6 +59,14 @@ class Engine:
     def ingest(self, rec, rx_ms=None):
         rec = dict(rec)
         rec["rx_ms"] = rx_ms if rx_ms is not None else int(time.time() * 1000)
+        if self.clock:
+            self.clock.correct(rec)                          # fast/skewed gateway clock -> real timeline
+            if self.clock.just_activated:
+                print("[clock] rebasing: dropping history built on the old timestamps (16-min warmup restarts)")
+                self.recent.clear()
+                self.minute = None
+                if self.dashboard:
+                    self.dashboard.forget_all()
         if self.live_log:
             self.live_log.write(json.dumps(rec, separators=(",", ":")) + "\n")
         self.stats["records"] += 1
@@ -176,7 +186,8 @@ def selftest(bundle, minutes=360):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default=os.path.join(HERE, "model.joblib"))
-    ap.add_argument("--log-dir", default=os.path.join(HERE, "data"))
+    ap.add_argument("--log-dir", default=None,
+                    help=f"jsonl logs dir (default {os.path.join(HERE, 'data')}; replay mode logs only if given)")
     ap.add_argument("--door-after", type=int, default=120, help="seconds a lid may stay open before an alert")
     ap.add_argument("--no-telegram", action="store_true")
     ap.add_argument("--replay", metavar="JSONL")
@@ -198,7 +209,8 @@ def main():
 
     if a.replay:
         eng = Engine(bundle, publish=lambda c: print("[cmd]", c),
-                     alerts=AlertEngine(Telegram(dry_run=True), door_after_s=a.door_after))
+                     alerts=AlertEngine(Telegram(dry_run=True), door_after_s=a.door_after),
+                     log_dir=a.log_dir)     # corrected live/prediction logs when --log-dir given (metrics evidence)
         with open(a.replay) as f:
             for line in f:
                 r = json.loads(line)
@@ -206,6 +218,8 @@ def main():
         print(eng.stats)
         return
 
+    if a.log_dir is None:
+        a.log_dir = os.path.join(HERE, "data")
     dash = None
     if a.http_port:
         dash = Dashboard(banner=a.banner, model_name=bundle and bundle["name"])

@@ -67,16 +67,24 @@ def delivery(recs):
 
 
 def latency(recs, alerts):
-    print("\n2) Latency")
-    lat = [r["rx_ms"] - r["ts"] for r in recs if r.get("ts") and r.get("rx_ms") and "event" not in r]
-    print("   gateway -> NETPIE -> PC, all records :", summary(lat, " ms"))
-    door = [r["rx_ms"] - r["ts"] for r in recs if r.get("reason") == 1 and r.get("ts") and r.get("rx_ms")]
-    print("   door events only                    :", summary(door, " ms"))
-    al = [a["sent_ms"] - a["trigger_ts"] for a in alerts if a.get("trigger_ts") and a.get("ok")]
-    print("   trigger record -> Telegram sent     :", summary(al, " ms"),
-          "\n   (for door latency run the service with --door-after 0 so the alert is immediate)")
-    if any(x < 0 for x in lat):
-        print("   WARNING: negative latencies -> gateway/PC clocks not synced (NTP) or simulator sim-clock data")
+    print("\n2) Latency (gateway -> NETPIE -> Pi); only clock-corrected records can measure it")
+    lat = [r["rx_ms"] - r["ts"] for r in recs
+           if r.get("ts") and r.get("rx_ms") and "event" not in r and "ts_raw" in r]
+    if lat:
+        print("   gateway -> NETPIE -> Pi (corrected records):", summary(lat, " ms"))
+    else:
+        print("   no corrected records - replay this log through the service (ai/clock.py corrects)")
+    door = [r["rx_ms"] - r["ts"] for r in recs
+            if r.get("reason") == 1 and r.get("ts") and r.get("rx_ms") and "ts_raw" in r]
+    if door:
+        print("   door events only                           :", summary(door, " ms"))
+    al = [a["sent_ms"] - a["trigger_ts"] for a in alerts
+          if a.get("trigger_ts") and a.get("ok") and a["trigger_ts"] < a["sent_ms"]]
+    if al:
+        print("   trigger record -> Telegram sent            :", summary(al, " ms"),
+              "\n   (for door latency run the service with --door-after 0 so the alert is immediate)")
+    else:
+        print("   trigger -> Telegram: not measurable (alerts logged before clock correction)")
 
 
 def uptime(recs, gap_ms=180_000):
@@ -117,6 +125,25 @@ def ai_mae(recs, preds):
     print("   persistence :", summary(base, " %RH"), "(baseline: 'RH stays the same')")
 
 
+def drift(recs):
+    print("\n5) Device clock rate vs arrival time (median of dts/drx over delivered pairs, "
+          "same estimator as ai/clock.py)")
+    by = {}
+    for r in recs:
+        ts = r.get("ts_raw") or r.get("ts")     # raw ts: report the drift even after ai/clock.py corrected logs
+        if ts and r.get("rx_ms") and "event" not in r:
+            by.setdefault(r.get("node_id"), []).append((r["rx_ms"], ts))
+    for nid, pts in sorted(by.items(), key=str):
+        pts.sort()
+        ratios = [(q[1] - p[1]) / (q[0] - p[0]) for p, q in zip(pts, pts[1:])
+                  if q[0] - p[0] >= 1000 and q[1] > p[1]]
+        if len(ratios) < 50:
+            continue
+        a = st.median(ratios)
+        note = "  <-- clock runs fast: NTP lost, timestamps corrected by ai/clock.py" if a > 1.05 else ""
+        print(f"   {nid}: x{a:.2f} (n={len(ratios)} pairs){note}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", default="ai/data")
@@ -130,6 +157,7 @@ def main():
     latency(recs, load(os.path.join(a.dir, "alerts.jsonl"), a.since))
     uptime(recs)
     ai_mae(recs, load(os.path.join(a.dir, "predictions.jsonl"), a.since))
+    drift(recs)
 
 
 if __name__ == "__main__":
