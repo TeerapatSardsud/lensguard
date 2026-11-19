@@ -47,7 +47,7 @@ def fixture_state():
     return {
         "server_now_ms": now, "data_now_ms": last_rx,
         "range_min": 360, "banner": "", "banner_key": "stale",
-        "banner_args": {"mins": STALE_MIN, "last": "18/11 10:55"},
+        "banner_args": {"mins": int((now - last_rx) / 60_000 + 0.5), "last": "18/11 10:55"},
         "model": "RandomForest", "last_rx_ms": last_rx,
         "thresholds": {"fan_on": 55, "fan_off": 45, "alert": 60},
         "boxes": {"box_A": box(50.0, 28.2), "box_B": box(52.0, 28.4)},
@@ -60,15 +60,29 @@ def fixture_state():
     }
 
 
+FLAGS = {"empty_alerts": False}
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args, **kwargs):
         pass
 
     def do_GET(self):
         if self.path.startswith("/api/state"):
-            body = json.dumps(fixture_state()).encode()
-            ctype = "application/json"
+            st = fixture_state()
+            if FLAGS["empty_alerts"]:                  # the "oversized empty panel" case
+                st["alerts"] = []
+                st["events"] = [
+                    {"event": "fan", "box": "box_B", "value": 0, "detail": "fallback",
+                     "ts": st["data_now_ms"] - 60_000},
+                    {"event": "fan", "box": "box_A", "value": 1, "detail": "ai",
+                     "ts": st["data_now_ms"] - 6 * 60_000},
+                    {"event": "boot", "box": None, "value": None, "detail": "2026-11-18 09:14",
+                     "ts": st["data_now_ms"] - 9 * 60_000},
+                ]
+            body, ctype = json.dumps(st).encode(), "application/json"
         else:
+            FLAGS["empty_alerts"] = "lists=alerts_empty" in self.path
             with open(PAGE, "rb") as f:
                 body, ctype = f.read(), "text/html; charset=utf-8"
         self.send_response(200)
@@ -161,6 +175,13 @@ def main():
               "Last AI forecast" in body_en and "AI forecast (next 10 min)" not in body_en)
         check("offline gateway shows how old its values are",
               "Offline · last known" in body_en)
+        gw_rows = page.locator("#cards .gw .row").all_inner_texts()
+        check("offline gateway qualifies the uptime row (frozen, not a live counter)",
+              any(r.startswith("Uptime at last contact") for r in gw_rows), str(gw_rows))
+        gw_note = page.locator("#cards .gw .gw-note")
+        check("offline gateway explains that Wi-Fi/uptime are last-known readings",
+              gw_note.count() == 1 and "not live" in gw_note.inner_text(), gw_note.inner_text()
+              if gw_note.count() else "missing .gw-note")
 
         # every Thai character left in EN mode must come from the stored alert/event originals
         stripped = body_en.replace("กล่อง B ความชื้นสูง 61.0%", "")
@@ -189,6 +210,23 @@ def main():
         mobile.wait_for_timeout(600)
         overflow = mobile.evaluate("document.documentElement.scrollWidth - window.innerWidth")
         check("no horizontal overflow at 390px", overflow <= 0, f"overflow={overflow}px")
+
+        # an empty panel must hug its own content, not stretch to the taller neighbour, and its
+        # empty state is one icon + one label (the old markup emitted empty placeholder spans)
+        empty = browser.new_page(viewport={"width": 1440, "height": 1000})
+        empty.goto(url + "?lists=alerts_empty", wait_until="networkidle")
+        empty.wait_for_timeout(700)
+        hs = empty.evaluate("""(() => {
+          const [al, ev] = document.querySelectorAll('.grid2 > section');
+          return {alerts: al.getBoundingClientRect().height, events: ev.getBoundingClientRect().height};
+        })()""")
+        check("empty Alerts panel hugs its content instead of matching Events",
+              hs["alerts"] < hs["events"] - 20, f"alerts={hs['alerts']:.0f} events={hs['events']:.0f}")
+        row = empty.locator("#alerts li.empty")
+        check("empty list renders one icon + one label",
+              row.count() == 1 and row.locator("svg").count() == 1 and row.locator("span").count() == 1,
+              row.inner_text() if row.count() else "no li.empty")
+        empty.close()
 
         fan_rows = page.locator("#cards article").first.locator(".ai .row").all_inner_texts()
         check("fan explanation matches current state (OFF here)",

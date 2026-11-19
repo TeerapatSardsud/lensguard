@@ -114,6 +114,8 @@ section > .sec { display: flex; align-items: baseline; justify-content: space-be
 .gw .rows { display: grid; gap: 8px; margin-top: 12px; }
 .gw .row { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 .gw .row:last-child { border-bottom: 0; padding-bottom: 0; }
+.gw-note { margin: 8px 0 0; font-size: 12px; color: var(--ink-2); }
+.gw.off .rows .row b { color: var(--ink-2); }   /* last-known numbers must not read as live */
 
 /* 2. chart */
 .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -141,12 +143,14 @@ th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background
 .table-wrap { max-height: 360px; overflow: auto; margin-top: 10px; }
 
 /* 3. alerts | events */
-.grid2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; }
+/* panels hug their own content: an empty Alerts list must not stretch to the Events card's height */
+.grid2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; align-items: start; }
 @media (max-width: 760px) { .grid2 { grid-template-columns: minmax(0,1fr); } }
 .list .when { max-width: 40%; white-space: normal; text-align: right; }
 .list { list-style: none; margin: 8px 0 0; padding: 0; }
 .list li { display: grid; grid-template-columns: 20px 1fr auto; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; align-items: start; }
 .list li:last-child { border-bottom: 0; }
+.list li.empty { padding: 8px 0 2px; border-bottom: 0; color: var(--ink-2); }
 .list .when { color: var(--muted); font-size: 12px; white-space: nowrap; padding-top: 2px; }
 .list .txt { white-space: pre-line; }
 .list svg { width: 18px; height: 18px; margin-top: 2px; }
@@ -249,6 +253,7 @@ const I18N = {
     "gw.ambient": "อุณหภูมิภายนอก", "gw.exc": "ดีมาก", "gw.good": "ดี", "gw.fair": "พอใช้", "gw.weak": "อ่อน",
     "gw.uptime": "เวลาทำงานต่อเนื่อง", "gw.buffer": "ข้อมูลรอส่ง", "gw.items": "{n} รายการ",
     "gw.rx": "แพ็กเก็ตที่รับ (ซ้ำ)", "gw.model": "โมเดล AI",
+    "gw.uptime_last": "เวลาทำงานตอนติดต่อได้", "gw.stale_note": "ค่าที่เห็นเป็นค่าล่าสุดที่รับได้เมื่อ {at} ไม่ใช่ค่าสด · สัญญาณ Wi-Fi ที่ยังขึ้นว่าดีคือค่าที่วัดได้ตอนนั้น",
     "gw.nomodel": "ไม่มีโมเดล ใช้กฎสำรอง", "gw.nodes": "โหนดอื่นที่พบ",
     "chart.empty": "ยังไม่มีข้อมูลในช่วงเวลานี้",
     "thr.alert": "แจ้งเตือน", "thr.fan_on": "พัดลมเปิด", "thr.fan_off": "พัดลมปิด",
@@ -292,6 +297,7 @@ const I18N = {
     "gw.ambient": "Ambient temperature", "gw.exc": "Excellent", "gw.good": "Good", "gw.fair": "Fair", "gw.weak": "Weak",
     "gw.uptime": "Uptime", "gw.buffer": "Queued readings", "gw.items": "{n} pending",
     "gw.rx": "Packets received (duplicates)", "gw.model": "AI model",
+    "gw.uptime_last": "Uptime at last contact", "gw.stale_note": "These are the last readings received at {at}, not live. The Wi-Fi figure was good at that moment and may have changed since.",
     "gw.nomodel": "No model — using fallback rule", "gw.nodes": "Other nodes detected",
     "chart.empty": "No data in this range",
     "thr.alert": "Alert", "thr.fan_on": "Fan ON", "thr.fan_off": "Fan OFF",
@@ -444,7 +450,8 @@ function systemCard(st) {
   const rows = [
     [t("gw.ambient"), g.temp_out == null ? "–" : fmt1(g.temp_out) + " °C"],
     ["Wi-Fi", rssi ? `${q} (${rssi} dBm)` : "–"],
-    [t("gw.uptime"), g.uptime_s == null ? "–" : dur(g.uptime_s * 1000)],
+    // offline: uptime_s is a value frozen at the last contact, not a live counter
+    [t(g.online ? "gw.uptime" : "gw.uptime_last"), g.uptime_s == null ? "–" : dur(g.uptime_s * 1000)],
     [t("gw.buffer"), g.buffered == null ? "–" : t("gw.items", { n: g.buffered })],
     [t("gw.rx"), g.rx_ok == null ? "–" : `${g.rx_ok} (${g.rx_dup || 0})`],
     [t("gw.model"), st.model || t("gw.nomodel")],
@@ -453,6 +460,13 @@ function systemCard(st) {
   const sys = el("div", { class: "rows" });
   for (const [k, v] of rows) sys.append(el("div", { class: "row" }, el("span", {}, k), el("b", {}, v)));
   card.append(sys);
+  // one plain sentence so "offline card, good Wi-Fi" cannot read as a contradiction
+  if (!g.online && (g.temp_out != null || g.rssi != null || g.uptime_s != null)) {
+    card.append(el("p", { class: "gw-note" }, t("gw.stale_note", {
+      ago: ago(g.rx_ms ? st.server_now_ms - g.rx_ms : null),
+      at: g.rx_ms ? hhmm(g.rx_ms) : "–",
+    })));
+  }
   return card;
 }
 
@@ -605,7 +619,7 @@ const ALERT_ICON = { rh_high: ["critical", "warn"], door_open: ["warning", "door
   silica: ["serious", "salt"], reboot: ["warning", "reboot"], sensor_stuck: ["serious", "ice"] };
 function drawLists(st) {
   const ul = $("alerts"); ul.replaceChildren();
-  if (!st.alerts.length) ul.append(el("li", {}, el("span"), el("span", { class: "txt", style: "color:var(--muted)" }, t("alerts.empty")), el("span")));
+  if (!st.alerts.length) ul.append(el("li", { class: "empty" }, icon("ok"), el("span", { class: "txt" }, t("alerts.empty"))));
   for (const a of st.alerts) {
     const [lvl, ico] = ALERT_ICON[a.kind] || ["", "bell"];
     const i = icon(ico); i.style.color = `var(--${lvl || "muted"})`;
@@ -614,7 +628,7 @@ function drawLists(st) {
   }
   const ev = $("events"); ev.replaceChildren();
   const list = (st.events || []).slice(0, 10);
-  if (!list.length) ev.append(el("li", {}, el("span"), el("span", { class: "txt", style: "color:var(--muted)" }, t("events.empty")), el("span")));
+  if (!list.length) ev.append(el("li", { class: "empty" }, icon("ok"), el("span", { class: "txt" }, t("events.empty"))));
   for (const e of list) {
     let ico = "fan", text;
     const box = e.box ? boxLabel(e.box) : "";
