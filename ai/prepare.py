@@ -14,6 +14,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from clock import DriftCorrector  # noqa: E402
 from features import records_to_minutes  # noqa: E402
 
 
@@ -22,6 +23,8 @@ def main():
     ap.add_argument("--log", nargs="+", default=["ai/data/live.jsonl"])
     ap.add_argument("--boxes", nargs="+", default=["box_A", "box_B"])
     ap.add_argument("--since", type=int, default=0, help="ignore records with ts before this (epoch ms)")
+    ap.add_argument("--no-clock-correct", action="store_true",
+                    help="keep raw device timestamps instead of correcting drifted gateway clocks")
     ap.add_argument("--out-dir", default="ai/data")
     a = ap.parse_args()
 
@@ -36,6 +39,10 @@ def main():
                 if (r.get("ts") or r.get("rx_ms") or 0) >= a.since:
                     recs.append(r)
     recs.sort(key=lambda r: r.get("ts") or r.get("rx_ms") or 0)
+    if not a.no_clock_correct:
+        clock = DriftCorrector()                             # undo gateway clock drift (see ai/clock.py)
+        for r in recs:
+            clock.correct(r)
     print(f"{len(recs)} records")
     for b in a.boxes:
         df = records_to_minutes(recs, b)

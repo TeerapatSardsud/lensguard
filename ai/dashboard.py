@@ -80,6 +80,14 @@ class Dashboard:
         with self.lock:
             self.pred[box] = {"pred": round(pred, 1), "fan_cmd": int(fan_cmd), "t": t}
 
+    def forget_all(self):
+        """Drop per-node chart history + model badges: used when the clock corrector rebases
+        timestamps, so old (uncorrected) minutes never mix with corrected ones on the chart."""
+        with self.lock:
+            self.hist = {b: {} for b in self.boxes}
+            self.pred = {}
+            self.data_now = 0
+
     def on_alert(self, kind, box, text, sent_ms):
         with self.lock:
             self.alerts.appendleft({"kind": kind, "box": box, "text": text, "sent_ms": sent_ms})

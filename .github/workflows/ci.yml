@@ -47,6 +47,10 @@ jobs:
         run: python -m pyflakes ai tools
       - name: Controller unit test
         run: python ai/controller.py
+      - name: Clock-drift corrector unit test
+        run: python ai/clock.py
+      - name: Feature gap-safety unit test
+        run: python ai/features.py
       - name: Train on synthetic data
         run: |
           python ai/gen_synthetic.py --days 4 --out ai/data/synthetic.csv
