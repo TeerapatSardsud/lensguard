@@ -91,6 +91,50 @@ class Engine:
             self.minute = m
             self.tick(t)
 
+    def preload(self, path, hours=24):
+        """Refill the in-memory history from our own log after a restart.
+
+        Without this the AI is blind for MIN_HISTORY (16) minutes after every
+        restart: dash.preload() rebuilds the CHARTS only, so `recent` starts
+        empty and decide_fan() falls back to gateway rules while the model
+        warms up. Here we restore the prediction buffer itself. Records are
+        appended straight into `recent` (not via ingest) on purpose: no
+        re-logging to live.jsonl, no replayed alerts, no clock re-correction
+        of data that was already corrected when it was written.
+        """
+        if not os.path.exists(path):
+            return 0
+        rows = []
+        with open(path) as f:
+            for line in f:
+                try:
+                    r = json.loads(line)
+                except ValueError:
+                    continue
+                if r.get("rx_ms"):
+                    rows.append(r)
+        if not rows:
+            return 0
+        newest = max(r["rx_ms"] for r in rows)
+        since_rx = newest - hours * 3_600_000
+        n = 0
+        for r in sorted(rows, key=lambda r: r["rx_ms"]):
+            if r["rx_ms"] < since_rx:
+                continue
+            r = dict(r)
+            ts = r.get("ts")
+            # same physically-impossible-clock clamp the dashboard applies
+            if ts and ts - r["rx_ms"] > 10 * 60_000:
+                r["ts"] = r["rx_ms"]
+            if self.recent and r.get("ts") and (r["ts"] < self.recent[-1].get("ts") or 0):
+                continue
+            self.recent.append(r)
+            n += 1
+        while self.recent and (self.recent[-1].get("ts") or self.recent[-1]["rx_ms"]) - \
+                (self.recent[0].get("ts") or self.recent[0]["rx_ms"]) > KEEP_MS:
+            self.recent.popleft()
+        return n
+
     def predict(self, box):
         df = records_to_minutes(self.recent, box)
         if len(df) < MIN_HISTORY or self.bundle is None:
@@ -166,6 +210,21 @@ def selftest(bundle, minutes=360):
           f"fan events={sum(e['event'] == 'fan' for e in events)}, "
           f"silica events={sum(e['event'] == 'silica' for e in events)}")
     assert cmds, "AI produced no commands"
+    # restart warm-start: a fresh Engine preloaded from our own log must be
+    # able to predict immediately (no 16-min blind window after a deploy).
+    if bundle is not None:
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as tf:
+            for rec in eng.recent:
+                tf.write(json.dumps(rec) + "\n")
+            log_path = tf.name
+        eng2 = Engine(bundle, publish=lambda c: None,
+                      alerts=AlertEngine(Telegram(dry_run=True), door_after_s=10**9))
+        n = eng2.preload(log_path)
+        _, pred = eng2.predict("box_A")
+        os.unlink(log_path)
+        assert n > 0 and pred is not None, f"preloaded engine could not predict (n={n})"
+        print(f"selftest: restart warm-start ok ({n} records reloaded, first prediction immediate)")
     if bundle is not None:
         assert any(e["event"] == "fan" and e["detail"] == "ai" for e in events), "gateway never followed AI"
     assert any(e["event"] == "silica" for e in events), "saturated box_B should raise a silica event"
@@ -252,6 +311,15 @@ def main():
         print(f"[cmd] {cmd['node_id']} fan={'ON ' if cmd['fan'] else 'OFF'} rh={cmd['rh']} pred={cmd['pred']}")
 
     eng = Engine(bundle, publish, alerts, log_dir=a.log_dir, dashboard=dash)
+    # charts survive a restart via dash.preload; the model must too, or every
+    # deploy blinds the AI for MIN_HISTORY minutes and the fan falls back to
+    # gateway rules (observed live 2026-11-20 after the 14:51 restart).
+    n_hist = eng.preload(os.path.join(a.log_dir, "live.jsonl"))
+    if n_hist:
+        newest = max(r.get("ts") or r["rx_ms"] for r in eng.recent)
+        eng.minute = newest // 60_000
+        print(f"[ai] prediction buffer warm-started from live.jsonl: {n_hist} records "
+              f"(up to {time.strftime('%H:%M:%S', time.localtime(newest / 1000))}) - no warmup gap")
     print("[ai] running - Ctrl+C to stop")
     try:
         while True:
