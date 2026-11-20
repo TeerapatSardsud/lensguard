@@ -7,7 +7,9 @@ If the AI/cloud is down the gateway runs its own 55 %/45 % rule (failsafe); the 
 
 ```
 node/      ESP32 sensor node firmware (PlatformIO, envs box_A / box_B)    compiles; not yet run on hardware
+node-alt/  checkpoint node firmware actually flashed on the two boxes (JSON over ESP-NOW, envs box_a / box_b; see node-alt/README.md)
 gateway/   ESP32 gateway firmware (PlatformIO, envs gateway / gateway_ota)  compiles; not yet run on hardware
+gateway-mini/ checkpoint gateway variant (JSON from node-alt -> shadow + @msg, SNTP re-sync; bench-verified 2026-11-20)
 common/    protocol.h (all shared constants), packet.h (ESP-NOW layout)
 ai/        features, training, controller, service.py (closed loop + alerts + logger + web dashboard), prepare.py
 tools/     mqtt_simulator.py (fake gateway), telegram_test.py, metrics.py, netpie.py (TLS pinning helper)
