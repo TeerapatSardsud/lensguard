@@ -81,12 +81,16 @@ class Dashboard:
             self.pred[box] = {"pred": round(pred, 1), "fan_cmd": int(fan_cmd), "t": t}
 
     def forget_all(self):
-        """Drop per-node chart history + model badges: used when the clock corrector rebases
-        timestamps, so old (uncorrected) minutes never mix with corrected ones on the chart."""
+        """Drop per-node chart history + model badges + the event queue: used when the clock
+        corrector rebases timestamps, so old (uncorrected) minutes never mix with corrected ones
+        on the chart. Events must be dropped too: their rows carry the raw device ts until the
+        first corrected ingest, and the UI prints that ts — an un-cleared queue shows entries
+        days in the future after a rebase."""
         with self.lock:
             self.hist = {b: {} for b in self.boxes}
             self.pred = {}
             self.data_now = 0
+            self.events.clear()
 
     def on_alert(self, kind, box, text, sent_ms):
         with self.lock:
