@@ -2,6 +2,7 @@
 
 Wokwi project (full system view, LEDs stand in for the fans): https://wokwi.com/projects/480315294985826305
 Pins changed on 2026-11-10 to follow that diagram: reed 27→33, DS18B20 18→16, fans 25/26→26/27.
+Known sim-vs-hardware divergence (2026-11-20): the physical boxes have DHT22 DATA on **GPIO25**, the diagram uses GPIO4 — see the Node table below.
 
 The fans are driven by the gateway, so each box needs a 2-wire cable from the gateway to its fan (see the 3D model in `material/`).
 BOM lists 1–2 MOSFETs: buy **2**. With only one, both fans would share one on/off state and the firmware
@@ -10,9 +11,9 @@ BOM lists 1–2 MOSFETs: buy **2**. With only one, both fans would share one on/
 ## Node (box_A / box_B) — ESP32 + DHT22 + reed switch
 | Signal | ESP32 pin | Notes |
 |---|---|---|
-| DHT22 DATA | GPIO4 | 10 kΩ pull-up DATA→3V3 (skip if the DHT22 is a 3-pin module with built-in resistor) |
+| DHT22 DATA | **GPIO25 on the built boxes** | 10 kΩ pull-up DATA→3V3 (skip if the DHT22 is a 3-pin module with built-in resistor). The Wokwi diagram and `node/src/main.cpp` (`#define DHT_PIN 4`) use **GPIO4** — the two real boxes are wired to **GPIO25** because the DATA wire is too short to reach GPIO4 (builder confirmed 2026-11-20). Consequence: flashing the repo `node/` firmware as-is reads a floating GPIO4 and the DHT22 read fails forever (all-NaN → `valid=0` records). Either change `DHT_PIN` to 25 before flashing repo `node/` onto the real boxes, or use the patched checkpoint `Node` build (friend's firmware, kept in `embed-proj/` until it is committed as a repo variant), which reads `DHT_PIN` from `include/config.h`. GPIO25 is safe here: it is not a strapping pin and it is bidirectional (unlike GPIO34–39, input-only). If the boxes are ever re-wired to GPIO4, update this row AND `config.h` together — the sim already matches GPIO4. |
 | DHT22 VCC / GND | 3V3 / GND | |
-| Reed switch | GPIO33 ↔ GND | `INPUT_PULLUP`; magnet on the lid = closed (LOW), lid open = HIGH |
+| Reed switch | GPIO33 ↔ GND | `INPUT_PULLUP`; magnet on the lid = closed (LOW), lid open = HIGH. Same in sim, repo firmware and the built boxes |
 | Power | USB 5 V (adapter or power bank) | |
 
 ## Gateway — ESP32 + DS18B20 + LDR + MQ-135 + 2 fans (one per box)
