@@ -26,6 +26,10 @@ jobs:
         run: pio run -d node
       - name: Build gateway
         run: pio run -d gateway -e gateway
+      - name: Build gateway-mini (checkpoint variant)
+        run: |
+          cp gateway-mini/include/secrets.h.example gateway-mini/include/secrets.h
+          pio run -d gateway-mini
       - name: Build with real-sensor code paths (SIMULATE_SENSOR=0)
         env:
           PLATFORMIO_BUILD_FLAGS: -DSIMULATE_SENSOR=0 -Wno-builtin-macro-redefined
