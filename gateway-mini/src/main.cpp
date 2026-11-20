@@ -46,8 +46,8 @@ static void onFanCommand(char *topic, uint8_t *payload, unsigned len) {
   for (int i = 0; i < 2; i++)
     if (strcmp(id, NODE_IDS[i]) == 0 && v >= 0) {
       fanCmd[i] = (v != 0);
-      Serial.printf("[fan] %s <= AI cmd %s (pred=%s)\n", id, fanCmd[i] ? "ON" : "OFF",
-                    const char *(d["pred"] | "?"));
+      const char *pred = (const char *)(d["pred"] | "?");
+      Serial.printf("[fan] %s <= AI cmd %s (pred=%s)\n", id, fanCmd[i] ? "ON" : "OFF", pred);
       // TODO hardware: drive the fan GPIO for box i here.
     }
 }
@@ -190,7 +190,10 @@ void loop() {
     g["node_id"] = "gateway";
     g["ts"] = nowMs();
     g["uptime_s"] = (uint32_t)(millis() / 1000);
-    char gbuf[160];
+    g["rssi"] = WiFi.RSSI();               // fills the dashboard gateway card (Wi-Fi row)
+    g["free_heap"] = ESP.getFreeHeap();    // long-run robustness evidence
+    g["buffered"] = (uint16_t)uxQueueMessagesWaiting(rxQueue);
+    char gbuf[256];
     size_t gn = serializeJson(g, gbuf, sizeof(gbuf));
     if (mqtt.connected()) mqtt.publish(TOPIC_DATA, gbuf, gn);
   }
