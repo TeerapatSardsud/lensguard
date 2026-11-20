@@ -18,7 +18,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.platformio
-          key: pio-${{ hashFiles('node/platformio.ini', 'gateway/platformio.ini') }}
+          key: pio-${{ hashFiles('node/platformio.ini', 'gateway/platformio.ini', 'gateway-mini/platformio.ini', 'node-alt/platformio.ini') }}
       - run: pip install platformio
       - name: Placeholder secrets (real ones are never in the repo)
         run: cp gateway/include/secrets.example.h gateway/include/secrets.h
@@ -30,6 +30,10 @@ jobs:
         run: |
           cp gateway-mini/include/secrets.h.example gateway-mini/include/secrets.h
           pio run -d gateway-mini
+      - name: Build node-alt (checkpoint variant, JSON payload; box_a + box_b)
+        run: |
+          pio run -d node-alt -e box_a
+          pio run -d node-alt -e box_b
       - name: Build with real-sensor code paths (SIMULATE_SENSOR=0)
         env:
           PLATFORMIO_BUILD_FLAGS: -DSIMULATE_SENSOR=0 -Wno-builtin-macro-redefined
