@@ -787,7 +787,10 @@ function drawLists(st) {
     else if (e.event === "boot") { ico = "reboot"; text = t("ev.boot", { d: e.detail }); }
     else text = e.event;
     const i = icon(ico); i.style.color = "var(--muted)";
-    ev.append(el("li", {}, i, el("span", { class: "txt" }, text), el("span", { class: "when" }, e.ts ? hhmm(e.ts) : "")));
+    // rx_ms (Pi receive time) first, e.ts only as fallback: before the clock corrector activates,
+    // e.ts is the gateway's own clock and can sit days in the future (15x drift / sim clock).
+    const when = e.rx_ms || e.ts;
+    ev.append(el("li", {}, i, el("span", { class: "txt" }, text), el("span", { class: "when" }, when ? hhmm(when) : "")));
   }
 }
 

@@ -73,7 +73,7 @@ def fixture_state(range_min=360):
     }
 
 
-FLAGS = {"empty_alerts": False}
+FLAGS = {"empty_alerts": False, "events_drift": False}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -98,9 +98,16 @@ class Handler(BaseHTTPRequestHandler):
                     {"event": "boot", "box": None, "value": None, "detail": "2026-11-18 09:14",
                      "ts": st["data_now_ms"] - 9 * 60_000},
                 ]
+            if FLAGS["events_drift"]:             # pre-activation corrector case (2026-11-20)
+                st["events"] = [
+                    {"event": "fan", "box": "box_A", "value": 1, "detail": "fallback",
+                     "ts": st["last_rx_ms"] + 12 * 86_400_000 + 3 * 60_000,  # gateway clock ~15x fast
+                     "rx_ms": st["last_rx_ms"]},                    # Pi receive time = truth
+                ]
             body, ctype = json.dumps(st).encode(), "application/json"
         else:
             FLAGS["empty_alerts"] = "lists=alerts_empty" in self.path
+            FLAGS["events_drift"] = "events=drift" in self.path
             with open(PAGE, "rb") as f:
                 body, ctype = f.read(), "text/html; charset=utf-8"
         self.send_response(200)
@@ -483,6 +490,21 @@ def main():
               row.count() == 1 and row.locator("svg").count() == 1 and row.locator("span").count() == 1,
               row.inner_text() if row.count() else "no li.empty")
         empty.close()
+
+        # Events time must come from rx_ms, not the raw gateway ts: before the DriftCorrector
+        # activates, ts can be days ahead (15x board/sim clock) and the row reads as the future.
+        drift = browser.new_page(viewport={"width": 1440, "height": 1000})
+        drift.goto(url + "?events=drift", wait_until="networkidle")
+        drift.wait_for_timeout(700)
+        # compare against the value the page itself renders from (same toLocaleTimeString call),
+        # so the assertion cannot break on a UTC-vs-local runner the way a hardcoded clock did
+        exp = drift.evaluate("""(() => new Date(state.last_rx_ms).toLocaleTimeString(
+            document.documentElement.lang === 'th' ? 'th-TH' : 'en-GB',
+            { hour: '2-digit', minute: '2-digit', hour12: false }))()""")
+        when = drift.locator("#events li .when").first.inner_text().strip()
+        check("Events row prints rx_ms, not the drifted gateway ts",
+              when == exp, f"printed {when!r}, expected {exp!r} (rx_ms)")
+        drift.close()
 
         fan_rows = page.locator("#cards article").first.locator(".ai .row").all_inner_texts()
         check("fan explanation matches current state (OFF here)",
