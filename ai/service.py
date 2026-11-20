@@ -191,6 +191,8 @@ def main():
     ap.add_argument("--door-after", type=int, default=120, help="seconds a lid may stay open before an alert")
     ap.add_argument("--no-telegram", action="store_true")
     ap.add_argument("--replay", metavar="JSONL")
+    ap.add_argument("--shadow", action="store_true",
+                    help="poll the gateway NETPIE shadow (HTTPS) instead of MQTT @msg")
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--host", default=netpie.HOST)
     ap.add_argument("--port", type=int, default=netpie.PORT_TLS)
@@ -231,11 +233,21 @@ def main():
                          log_path=os.path.join(a.log_dir, "alerts.jsonl"),
                          on_sent=dash.on_alert if dash else None)
     q = queue.Queue()
-    client = netpie.make_client("AI_NETPIE", a.host, a.port, tls=not a.no_tls,
-                                on_message=lambda c, u, m: q.put((m.payload, int(time.time() * 1000))),
-                                subscribe=[netpie.TOPIC_DATA])
+    source = None
+    client = None
+    if a.shadow:
+        from shadow import ShadowSource
+        source = ShadowSource(os.environ.get("NETPIE_CLIENT_ID"), os.environ.get("NETPIE_TOKEN"))
+        print("[shadow] input = HTTPS shadow polling (no MQTT, does not touch the gateway ClientID)")
+    else:
+        client = netpie.make_client("AI_NETPIE", a.host, a.port, tls=not a.no_tls,
+                                    on_message=lambda c, u, m: q.put((m.payload, int(time.time() * 1000))),
+                                    subscribe=[netpie.TOPIC_DATA])
 
     def publish(cmd):
+        if a.shadow or client is None:   # gateway project delivers no @msg: decisions recorded, not delivered
+            print(f"[cmd] ({cmd['node_id']}) shadow-mode decision only: fan={'ON ' if cmd['fan'] else 'OFF'} rh={cmd['rh']} pred={cmd['pred']}")
+            return
         client.publish(netpie.TOPIC_FAN, json.dumps(cmd, separators=(",", ":")))
         print(f"[cmd] {cmd['node_id']} fan={'ON ' if cmd['fan'] else 'OFF'} rh={cmd['rh']} pred={cmd['pred']}")
 
@@ -244,6 +256,11 @@ def main():
     try:
         while True:
             try:
+                if source is not None:
+                    for rec, rx in source.poll():
+                        eng.ingest(rec, rx_ms=rx)
+                    time.sleep(5)
+                    continue
                 payload, rx = q.get(timeout=1)
                 eng.ingest(json.loads(payload), rx_ms=rx)
             except queue.Empty:
@@ -253,7 +270,8 @@ def main():
             alerts.tick()                                          # silence / lid-open timers
     except KeyboardInterrupt:
         print("\n[ai] stopped", eng.stats)
-    client.loop_stop(); client.disconnect()
+    if client is not None:
+        client.loop_stop(); client.disconnect()
 
 
 if __name__ == "__main__":
