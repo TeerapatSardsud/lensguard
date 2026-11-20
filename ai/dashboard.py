@@ -27,6 +27,10 @@ STALE_BANNER_S = int(os.environ.get("LENSGUARD_STALE_BANNER_S", "300"))  # no re
 
 
 class Dashboard:
+    # A device stamp further ahead of our receive time than this is physically impossible for a
+    # live delivery (it means the device clock is fast); fall back to rx_ms. Kept above the AI
+    # horizon so a legitimately-forecast timestamp is never clamped.
+    MAX_TS_SKEW_MS = 10 * 60_000
     def __init__(self, boxes=("box_A", "box_B"), banner="", model_name=None):
         self.boxes, self.banner, self.model_name = boxes, banner, model_name
         self.lock = threading.Lock()
@@ -44,6 +48,14 @@ class Dashboard:
     # ---------------------------------------------------------------- input
     def ingest(self, r):
         t = r.get("ts") or r.get("rx_ms") or int(time.time() * 1000)
+        # A record whose device stamp is far ahead of our own receive time is on a drifted
+        # clock (seen: gateway crystal free-running ~15x). Preloaded history never passes
+        # through DriftCorrector, so trust rx_ms here: otherwise data_now jumps into the
+        # future, the chart plots on a phantom timeline, and the AI warmup window - which is
+        # relative to data_now - can never fill with real, correctly-timed rows.
+        rx = r.get("rx_ms")
+        if rx and t - rx > self.MAX_TS_SKEW_MS:
+            t = rx
         nid = r.get("node_id")
         with self.lock:
             self.data_now = max(self.data_now, t)
@@ -191,3 +203,20 @@ class Dashboard:
         httpd = ThreadingHTTPServer((host, port), Handler)
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         return httpd
+
+
+if __name__ == "__main__":
+    # self-check: python ai/dashboard.py  (CI: "Dashboard timeline sanity unit test")
+    RX = 1_795_160_000_000
+    a = Dashboard(); a.ingest({"node_id": "box_A", "rx_ms": RX, "ts": RX + 12 * 3600_000, "rh": 50, "valid": 1})
+    assert a.data_now == RX, "drifted device ts must fall back to rx_ms"
+    b = Dashboard(); b.ingest({"node_id": "box_A", "rx_ms": RX, "ts": RX + 60_000, "rh": 50, "valid": 1})
+    assert b.data_now == RX + 60_000, "normal skew must keep the device ts"
+    c = Dashboard(); c.ingest({"node_id": "box_A", "rx_ms": RX, "ts": RX - 30_000, "rh": 50, "valid": 1})
+    assert c.data_now == RX - 30_000, "a device clock slightly behind must not be clamped"
+    d = Dashboard()
+    d.ingest({"node_id": "gateway", "event": "fan", "box": "box_A", "value": 1, "ts": RX, "rx_ms": RX})
+    assert len(d.events) == 1
+    d.forget_all()
+    assert not d.events, "clock rebase must drop raw-timestamped events too"
+    print("dashboard self-check OK")
